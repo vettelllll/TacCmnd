@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TACTICAL COMMAND v5.0</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="units-db.js"></script>
+<style>
+:root {
+  --bg:#080b0f; --bg1:#0c1117; --bg2:#101820; --bgh:#172030;
+  --b:#1e3a4a; --bb:#2a5a7a;
+  --blue:#00aaff; --red:#ff3333; --grn:#00ff88; --ylw:#ffcc00; --org:#ff8800;
+  --t1:#c8d8e8; --t2:#4a6a7a; --t3:#e8f4ff;
+  --font:'Courier New',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--t1);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* HEADER */
+#hdr{background:#090d12;border-bottom:1px solid var(--b);padding:4px 10px;display:flex;align-items:center;gap:8px;flex-shrink:0;position:relative;}
+#hdr::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--blue),transparent);}
+.h-title{font-size:13px;font-weight:bold;letter-spacing:4px;color:var(--blue);text-shadow:0 0 18px rgba(0,170,255,.4);}
+.h-sub{color:var(--t2);font-size:8px;letter-spacing:2px;}
+.hsep{width:1px;height:26px;background:var(--b);margin:0 2px;}
+.hgrp{display:flex;align-items:center;gap:4px;}
+.hlbl{font-size:8px;color:var(--t2);letter-spacing:1px;}
+.hval{color:var(--ylw);font-size:12px;font-weight:bold;min-width:26px;text-align:center;}
+.hclk{color:var(--grn);font-size:12px;letter-spacing:2px;margin-left:auto;text-align:right;}
+.hclk span{color:var(--t2);font-size:8px;display:block;}
+.btn{background:var(--bg2);border:1px solid var(--b);color:var(--t1);padding:3px 8px;cursor:pointer;font-family:var(--font);font-size:10px;letter-spacing:1px;transition:all .15s;text-transform:uppercase;}
+.btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(0,170,255,.06);}
+.btn.on{border-color:var(--grn);color:var(--grn);background:rgba(0,255,136,.06);}
+.btn.warn{border-color:var(--ylw);color:var(--ylw);}
+.btn.danger{border-color:var(--red);color:var(--red);}
+.btn.danger:hover{background:rgba(255,51,51,.06);}
+.btn.sm{padding:2px 6px;font-size:9px;}
+
+/* MAIN */
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* PANELS */
+.panel{background:var(--bg1);border-right:1px solid var(--b);display:flex;flex-direction:column;overflow:hidden;width:238px;flex-shrink:0;}
+.panel.right{border-right:none;border-left:1px solid var(--b);}
+.phdr{padding:5px 10px;border-bottom:1px solid var(--b);background:rgba(0,170,255,.03);letter-spacing:2px;font-size:9px;color:var(--blue);flex-shrink:0;display:flex;align-items:center;gap:5px;}
+.phdr::before{content:'▶';font-size:7px;}
+.ptabs{display:flex;border-bottom:1px solid var(--b);flex-shrink:0;}
+.ptab{flex:1;padding:4px;text-align:center;font-size:9px;letter-spacing:1px;color:var(--t2);cursor:pointer;border-right:1px solid var(--b);transition:all .15s;}
+.ptab:last-child{border-right:none;}
+.ptab.on{color:var(--blue);background:rgba(0,170,255,.06);border-bottom:2px solid var(--blue);}
+.pbody{flex:1;overflow-y:auto;padding:7px;}
+.pbody::-webkit-scrollbar{width:3px;}
+.pbody::-webkit-scrollbar-thumb{background:var(--b);}
+
+/* MAP */
+#mapwrap{flex:1;position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+.leaflet-container{background:#05080c!important;}
+.leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.65) saturate(.45);}
+.leaflet-control-zoom{background:var(--bg2)!important;border:1px solid var(--b)!important;}
+.leaflet-control-zoom a{background:var(--bg2)!important;color:var(--blue)!important;border-bottom:1px solid var(--b)!important;font-family:var(--font)!important;}
+.leaflet-control-attribution{background:rgba(8,11,15,.7)!important;color:var(--t2)!important;font-size:8px!important;}
+.leaflet-control-attribution a{color:var(--t2)!important;}
+
+/* MAP OVERLAYS */
+#mapinfo{position:absolute;bottom:8px;left:8px;background:rgba(8,11,15,.85);border:1px solid var(--b);padding:4px 8px;font-size:9px;color:var(--t2);pointer-events:none;z-index:999;backdrop-filter:blur(4px);}
+#mapinfo .coord{color:var(--blue);letter-spacing:1px;}
+#scoreboard{position:absolute;top:8px;right:8px;background:rgba(8,11,15,.9);border:1px solid var(--b);padding:6px 10px;font-size:10px;z-index:999;pointer-events:none;backdrop-filter:blur(4px);min-width:120px;}
+.scrow{display:flex;justify-content:space-between;gap:10px;margin-bottom:2px;}
+.sclbl{color:var(--t2);font-size:8px;letter-spacing:1px;}
+.pausedmsg{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(8,11,15,.88);border:1px solid var(--ylw);padding:10px 20px;font-size:14px;letter-spacing:4px;color:var(--ylw);z-index:1000;pointer-events:none;backdrop-filter:blur(4px);}
+.pausedmsg.on{display:block;}
+#modehint{display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(8,11,15,.92);border:1px solid var(--ylw);padding:5px 14px;font-size:9px;letter-spacing:2px;color:var(--ylw);z-index:1000;pointer-events:none;}
+#modehint.on{display:block;}
+
+/* SECTIONS */
+.sec{font-size:8px;letter-spacing:2px;color:var(--t2);padding:4px 2px 3px;border-bottom:1px solid rgba(30,58,74,.5);margin-bottom:4px;text-transform:uppercase;}
+.div{height:1px;background:var(--b);margin:5px 0;opacity:.5;}
+
+/* TEAM TOGGLE */
+.teamtog{display:flex;gap:3px;margin-bottom:5px;}
+.tbtn{flex:1;padding:4px;border:1px solid var(--b);background:var(--bg2);color:var(--t2);cursor:pointer;font-family:var(--font);font-size:10px;letter-spacing:2px;text-align:center;transition:all .15s;}
+.tbtn.blue.on{border-color:var(--blue);color:var(--blue);background:rgba(0,170,255,.1);}
+.tbtn.red.on{border-color:var(--red);color:var(--red);background:rgba(255,51,51,.1);}
+
+/* CAT FILTER */
+.catrow{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:5px;}
+.cfbtn{padding:2px 5px;border:1px solid var(--b);background:var(--bg2);color:var(--t2);cursor:pointer;font-family:var(--font);font-size:8px;letter-spacing:1px;transition:all .15s;}
+.cfbtn.on{border-color:var(--blue);color:var(--blue);background:rgba(0,170,255,.08);}
+
+/* UNIT CARDS */
+.ucard{border:1px solid var(--b);background:var(--bg2);padding:6px;margin-bottom:3px;cursor:pointer;transition:all .15s;}
+.ucard:hover{border-color:var(--bb);background:var(--bgh);}
+.ucard.sel{border-color:var(--blue);background:rgba(0,170,255,.07);}
+.ucard.sel.red{border-color:var(--red);background:rgba(255,51,51,.07);}
+.uctop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;}
+.ucname{font-size:10px;font-weight:bold;color:var(--t3);}
+.ucicon{font-size:13px;}
+.ucstats{color:var(--t2);font-size:8px;margin-bottom:2px;}
+.ucstats span{color:var(--t1);}
+.ucwpn{font-size:8px;display:flex;justify-content:space-between;padding:1px 3px;background:rgba(0,0,0,.2);margin-top:1px;}
+.ucwpnn{color:var(--t1);flex:1;}
+.ucwpnr{color:var(--blue);}
+.ucwpnd{color:var(--red);}
+.infsize{display:flex;gap:2px;margin-top:4px;}
+.szbtn{flex:1;padding:2px;border:1px solid var(--b);background:var(--bg);color:var(--t2);cursor:pointer;font-family:var(--font);font-size:8px;text-align:center;transition:all .15s;}
+.szbtn.on{border-color:var(--ylw);color:var(--ylw);background:rgba(255,204,0,.06);}
+.dephint{font-size:9px;color:var(--ylw);padding:4px 6px;border:1px dashed rgba(255,204,0,.3);background:rgba(255,204,0,.03);text-align:center;margin-top:4px;letter-spacing:1px;}
+
+/* UNIT LIST */
+.uitem{border:1px solid var(--b);background:var(--bg2);padding:4px 6px;margin-bottom:2px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px;}
+.uitem:hover{border-color:var(--bb);background:var(--bgh);}
+.uitem.sel{border-color:var(--grn);background:rgba(0,255,136,.04);}
+.uitem.blue{border-left:2px solid var(--blue);}
+.uitem.red{border-left:2px solid var(--red);}
+.uitem.dead{opacity:.3;}
+.uiico{font-size:12px;}
+.uiinfo{flex:1;min-width:0;}
+.uics{font-size:10px;font-weight:bold;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.uitp{font-size:8px;color:var(--t2);letter-spacing:1px;}
+.mbar{height:2px;background:rgba(255,255,255,.07);margin-top:1px;}
+.mfill{height:100%;}
+.mhp{background:var(--grn);} .mhp.lo{background:var(--red);animation:blink .5s infinite;}
+.mfp{background:var(--blue);} .mfp.lo{background:var(--org);animation:blink .8s infinite;}
+
+/* RIGHT PANEL */
+.dhdr{background:var(--bg2);border:1px solid var(--b);padding:6px;margin-bottom:5px;}
+.dcs{font-size:12px;font-weight:bold;letter-spacing:2px;color:var(--t3);}
+.dtp{font-size:9px;color:var(--t2);letter-spacing:1px;margin-top:1px;}
+.dbadge{display:inline-block;padding:1px 6px;font-size:8px;letter-spacing:2px;margin-top:3px;font-weight:bold;}
+.dbadge.blue{border:1px solid var(--blue);color:var(--blue);background:rgba(0,170,255,.08);}
+.dbadge.red{border:1px solid var(--red);color:var(--red);background:rgba(255,51,51,.08);}
+.dbadge.ylw{border:1px solid var(--ylw);color:var(--ylw);background:rgba(255,204,0,.06);}
+.dbadge.org{border:1px solid var(--org);color:var(--org);background:rgba(255,136,0,.06);}
+.bgrp{margin-bottom:5px;}
+.blbl{display:flex;justify-content:space-between;font-size:9px;color:var(--t2);margin-bottom:2px;}
+.blbl span:last-child{color:var(--t1);}
+.btrack{height:5px;background:rgba(255,255,255,.05);overflow:hidden;}
+.bfill{height:100%;transition:width .4s;}
+.bhp{background:linear-gradient(90deg,var(--red),var(--grn));}
+.bfuel{background:linear-gradient(90deg,var(--org),var(--blue));}
+.crow{display:flex;gap:4px;margin-bottom:4px;align-items:center;}
+.clbl{font-size:8px;color:var(--t2);letter-spacing:1px;width:42px;flex-shrink:0;}
+.cval{color:var(--ylw);font-size:10px;min-width:34px;text-align:right;}
+input[type=range]{-webkit-appearance:none;background:var(--bg);border:1px solid var(--b);height:3px;flex:1;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:8px;background:var(--blue);cursor:pointer;}
+.wrow{border:1px solid var(--b);background:var(--bg2);padding:4px 5px;margin-bottom:3px;}
+.wtop{display:flex;justify-content:space-between;align-items:center;}
+.wname{font-size:9px;color:var(--t3);}
+.wstats{display:flex;gap:5px;font-size:8px;}
+.wr{color:var(--blue);} .wd{color:var(--red);}
+.wbar{height:3px;background:rgba(255,255,255,.07);margin-top:3px;}
+.wbarfill{height:100%;background:var(--ylw);transition:width .4s;}
+.wcnt{font-size:8px;color:var(--t2);margin-top:1px;}
+.wrow.dep{opacity:.35;}
+.wrow.dep .wbarfill{background:var(--red);}
+.wpitem{display:flex;justify-content:space-between;align-items:center;padding:2px 5px;background:var(--bg2);border:1px solid var(--b);margin-bottom:2px;font-size:9px;}
+.wpnum{color:var(--ylw);font-weight:bold;margin-right:4px;}
+.wpcoord{color:var(--t2);font-size:8px;}
+.wpdel{color:var(--red);cursor:pointer;padding:0 3px;}
+.nosel{text-align:center;padding:20px 8px;color:var(--t2);font-size:9px;letter-spacing:1px;line-height:2;}
+.noselico{font-size:22px;opacity:.2;margin-bottom:5px;}
+.abtn{padding:3px 7px;font-size:9px;letter-spacing:1px;background:var(--bg);border:1px solid var(--b);color:var(--t2);cursor:pointer;font-family:var(--font);width:100%;text-align:left;transition:all .15s;margin-bottom:2px;text-transform:uppercase;}
+.abtn:hover{border-color:var(--bb);color:var(--t1);}
+.abtn.on{border-color:var(--ylw);color:var(--ylw);background:rgba(255,204,0,.05);}
+.abtn.grn{border-color:var(--grn);color:var(--grn);}
+.abtn.red{border-color:var(--red);color:var(--red);}
+
+/* MAP MARKERS */
+.um{display:flex;flex-direction:column;align-items:center;pointer-events:none;}
+.umico{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid;transition:all .2s;}
+.umico.blue{background:rgba(0,70,150,.8);border-color:var(--blue);box-shadow:0 0 7px rgba(0,170,255,.4);}
+.umico.red{background:rgba(120,0,0,.8);border-color:var(--red);box-shadow:0 0 7px rgba(255,51,51,.4);}
+.umico.pulse{animation:pulsesel 1s infinite;}
+.umico.dmgy{border-color:var(--ylw)!important;box-shadow:0 0 8px rgba(255,204,0,.6)!important;}
+.umico.dmgr{border-color:var(--red)!important;box-shadow:0 0 14px rgba(255,51,51,.9)!important;animation:blink .6s infinite;}
+@keyframes pulsesel{0%,100%{box-shadow:0 0 7px rgba(0,255,136,.5),0 0 0 0 rgba(0,255,136,.2);}50%{box-shadow:0 0 14px rgba(0,255,136,.7),0 0 0 6px rgba(0,255,136,.07);}}
+.umlbl{font-family:'Courier New',monospace;font-size:8px;font-weight:bold;letter-spacing:1px;color:#e8f4ff;background:rgba(8,11,15,.82);padding:1px 3px;margin-top:1px;white-space:nowrap;border:1px solid rgba(255,255,255,.07);}
+.umhp{width:26px;height:2px;background:rgba(255,255,255,.1);margin-top:1px;}
+.umhpf{height:100%;background:var(--grn);}
+.umhpf.lo{background:var(--red);animation:blink .5s infinite;}
+.umwpn{font-size:7px;font-weight:bold;letter-spacing:.5px;padding:1px 3px;margin-top:1px;white-space:nowrap;}
+.umwpn.blue{background:rgba(0,80,180,.85);color:#7df;border:1px solid rgba(0,170,255,.5);}
+.umwpn.red{background:rgba(150,0,0,.85);color:#f99;border:1px solid rgba(255,51,51,.5);}
+.umwpn.trk{background:rgba(30,25,0,.85);color:var(--ylw);border:1px solid rgba(255,204,0,.4);animation:blink 1.2s infinite;}
+.umfuel{font-size:7px;color:var(--org);animation:blink 1s infinite;margin-top:1px;}
+.umdepth{font-size:7px;color:#00ddff;margin-top:1px;letter-spacing:.5px;}
+.umghost .umico{opacity:.3;filter:grayscale(.8);}
+.umghost .umlbl{opacity:.25;}
+.baseico{display:flex;flex-direction:column;align-items:center;}
+.basesq{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;border:2px solid;}
+.basesq.blue{border-color:var(--blue);background:rgba(0,100,200,.5);color:var(--blue);}
+.basesq.red{border-color:var(--red);background:rgba(150,0,0,.5);color:var(--red);}
+.baselbl{font-size:7px;font-family:'Courier New',monospace;letter-spacing:1px;background:rgba(8,11,15,.85);padding:1px 3px;margin-top:1px;border:1px solid rgba(255,255,255,.07);white-space:nowrap;}
+.baselbl.blue{color:var(--blue);}
+.baselbl.red{color:var(--red);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* STATUS BAR */
+#sbar{background:var(--bg);border-top:1px solid var(--b);padding:2px 10px;display:flex;gap:10px;font-size:9px;color:var(--t2);letter-spacing:1px;flex-shrink:0;align-items:center;}
+#sbar span{color:var(--grn);}
+
+/* TIMELINE */
+#tl{background:var(--bg);border-top:1px solid var(--b);flex-shrink:0;overflow:hidden;transition:height .2s;}
+#tlhdr{padding:2px 8px;font-size:8px;color:var(--t2);letter-spacing:2px;border-bottom:1px solid rgba(30,58,74,.3);cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+#tltrack{position:relative;height:44px;overflow-x:auto;overflow-y:hidden;padding:4px 8px;}
+#tltrack::-webkit-scrollbar{height:2px;}
+#tltrack::-webkit-scrollbar-thumb{background:var(--b);}
+.tlevt{position:absolute;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;cursor:pointer;}
+.tlevt:hover::after{content:attr(data-tip);position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:var(--bg1);border:1px solid var(--b);padding:2px 5px;font-size:8px;white-space:nowrap;color:var(--t1);pointer-events:none;z-index:10;}
+#tltimeline{position:absolute;top:50%;left:8px;right:8px;height:1px;background:var(--b);}
+
+/* MODALS */
+.movl{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:2000;align-items:center;justify-content:center;}
+.movl.on{display:flex;}
+.mbox{background:var(--bg1);border:1px solid var(--b);padding:14px;min-width:340px;max-width:540px;max-height:80vh;overflow-y:auto;}
+.mbox::-webkit-scrollbar{width:3px;}
+.mbox::-webkit-scrollbar-thumb{background:var(--b);}
+.mtitle{font-size:11px;font-weight:bold;letter-spacing:3px;color:var(--blue);border-bottom:1px solid var(--b);padding-bottom:7px;margin-bottom:9px;}
+.msub{font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:7px;}
+.mbtns{display:flex;gap:6px;margin-top:10px;}
+.loslot{border:1px solid var(--b);background:var(--bg2);padding:4px 6px;margin-bottom:3px;display:flex;align-items:center;gap:6px;cursor:pointer;transition:all .15s;}
+.loslot:hover{border-color:var(--bb);}
+.loslot.on{border-color:var(--blue);background:rgba(0,170,255,.05);}
+.loslot input[type=checkbox]{accent-color:var(--blue);width:11px;height:11px;cursor:pointer;}
+.loslotname{flex:1;font-size:9px;color:var(--t3);}
+.loslotinfo{font-size:8px;color:var(--t2);}
+.loctr{font-size:9px;color:var(--t2);margin-bottom:6px;}
+.loctr span{color:var(--ylw);}
+.aarwin{font-size:16px;font-weight:bold;letter-spacing:4px;text-align:center;padding:8px;margin-bottom:8px;}
+.aarwin.blue{color:var(--blue);border:1px solid var(--blue);background:rgba(0,170,255,.07);}
+.aarwin.red{color:var(--red);border:1px solid var(--red);background:rgba(255,51,51,.07);}
+.aartbl{width:100%;border-collapse:collapse;font-size:9px;}
+.aartbl th{color:var(--t2);font-size:8px;letter-spacing:1px;padding:2px 5px;border-bottom:1px solid var(--b);text-align:left;font-weight:normal;}
+.aartbl td{padding:2px 5px;border-bottom:1px solid rgba(30,58,74,.3);}
+.aartbl tr.blue td:first-child{color:var(--blue);}
+.aartbl tr.red td:first-child{color:var(--red);}
+.aartbl tr.dead td{opacity:.45;}
+
+/* REPLAY */
+#rpbar{display:none;position:absolute;bottom:0;left:0;right:0;z-index:1500;background:rgba(8,11,15,.93);border-top:1px solid var(--ylw);padding:5px 10px;align-items:center;gap:7px;}
+#rpbar.on{display:flex;}
+.rplbl{font-size:9px;color:var(--ylw);letter-spacing:1px;white-space:nowrap;}
+#rpscrub{flex:1;}
+
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--b);}
+
+/* NEW BADGES */
+.umthreat{font-size:7px;color:#ff00ff;animation:blink .35s infinite;margin-top:1px;letter-spacing:.5px;font-weight:bold;}
+.umpatrol{font-size:7px;color:#00ff88;margin-top:1px;letter-spacing:.5px;}
+.umemcon{font-size:7px;color:#888;margin-top:1px;letter-spacing:.5px;}
+.umroe{font-size:7px;margin-top:1px;letter-spacing:.5px;}
+.umflare{font-size:7px;color:#ffee55;animation:blink .25s infinite;margin-top:1px;}
+/* ROE BUTTONS */
+.roerow{display:flex;gap:2px;margin-bottom:4px;}
+.roebtn{flex:1;padding:3px 0;border:1px solid var(--b);background:var(--bg2);color:var(--t2);cursor:pointer;font-family:var(--font);font-size:8px;letter-spacing:1px;text-align:center;transition:all .15s;}
+.roebtn:hover{border-color:var(--bb);}
+.roebtn.on.free{border-color:var(--red);color:var(--red);background:rgba(255,51,51,.07);}
+.roebtn.on.tight{border-color:var(--ylw);color:var(--ylw);background:rgba(255,204,0,.07);}
+.roebtn.on.hold{border-color:#888;color:#888;background:rgba(100,100,100,.07);}
+/* SPEED PRESETS */
+.spdbtn{flex:1;padding:2px 0;border:1px solid var(--b);background:var(--bg2);color:var(--t2);cursor:pointer;font-family:var(--font);font-size:8px;text-align:center;transition:all .15s;}
+.spdbtn:hover{border-color:var(--blue);color:var(--blue);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div>
+    <div class="h-title">TACTICAL COMMAND</div>
+    <div class="h-sub">WARZONE SIM v5.0 — GLOBAL MULTI-DOMAIN OPS</div>
+  </div>
+  <div class="hsep"></div>
+  <div class="hgrp">
+    <span class="hlbl">SPEED</span>
+    <button class="btn sm" onclick="chgSpd(-1)">◀</button>
+    <span class="hval" id="spddisp">1×</span>
+    <button class="btn sm" onclick="chgSpd(1)">▶</button>
+  </div>
+  <div class="hsep"></div>
+  <button class="btn warn" id="pausebtn" onclick="togglePause()">⏸ PAUSE</button>
+  <button class="btn" id="fowbtn" onclick="toggleFOW()">FOG: ON</button>
+  <button class="btn" id="wxbtn" onclick="cycleWeather()">WX: ☀ CLEAR</button>
+  <button class="btn" id="basebtn" onclick="startBaseMode()">+ BASE</button>
+  <button class="btn" onclick="showAAR()">AAR</button>
+  <button class="btn" id="rpbtn" onclick="toggleReplay()">REPLAY</button>
+  <button class="btn danger" onclick="resetGame()">↺ RESET</button>
+  <div class="hsep"></div>
+  <div class="hclk">
+    <div id="simtime">00:00:00</div>
+    <span>SIM TIME</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+<!-- LEFT PANEL -->
+<div class="panel">
+  <div class="phdr">DEPLOYMENT</div>
+  <div class="ptabs">
+    <div class="ptab on" id="lt0" onclick="ltab(0)">UNITS</div>
+    <div class="ptab" id="lt1" onclick="ltab(1)">FORCES</div>
+  </div>
+  <div class="pbody" id="lb0">
+    <div class="sec">TEAM</div>
+    <div class="teamtog">
+      <div class="tbtn blue on" id="tbblu" onclick="selTeam('blue')">◆ BLUE</div>
+      <div class="tbtn red"    id="tbred" onclick="selTeam('red')">◆ RED</div>
+    </div>
+    <div class="sec">CATEGORY</div>
+    <div class="catrow" id="catrow"></div>
+    <div class="sec">UNITS</div>
+    <div id="ucards"></div>
+    <div class="dephint" id="dephint" style="display:none">SELECT UNIT → CLICK MAP TO DEPLOY</div>
+  </div>
+  <div class="pbody" id="lb1" style="display:none">
+    <div class="sec">BLUE FORCE (<span id="bc">0</span>)</div>
+    <div id="bluelist"></div>
+    <div class="sec" style="margin-top:6px">RED FORCE (<span id="rc">0</span>)</div>
+    <div id="redlist"></div>
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="mapwrap">
+  <div id="map"></div>
+  <div id="mapinfo">
+    <div class="coord" id="coorddisp">LAT: --  LON: --</div>
+    <div style="margin-top:1px;font-size:8px">BLUE <span style="color:var(--blue)" id="ovb">0</span> &nbsp; RED <span style="color:var(--red)" id="ovr">0</span></div>
+  </div>
+  <div id="scoreboard">
+    <div class="scrow"><span class="sclbl">KILLS</span></div>
+    <div class="scrow"><span style="color:var(--blue)">BLUE</span><span style="color:var(--blue)" id="scb">0</span></div>
+    <div class="scrow"><span style="color:var(--red)">RED</span><span style="color:var(--red)" id="scr">0</span></div>
+  </div>
+  <div class="pausedmsg" id="pausedmsg">⏸ PAUSED</div>
+  <div id="modehint"></div>
+  <div id="rpbar">
+    <span class="rplbl">REPLAY</span>
+    <button class="btn sm" id="rpplaybtn" onclick="rpToggle()">▶ PLAY</button>
+    <input type="range" id="rpscrub" min="0" max="0" value="0" oninput="rpScrub(+this.value)">
+    <span class="rplbl" id="rptlbl">T+00:00</span>
+    <button class="btn sm" onclick="exitReplay()">✕ EXIT</button>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel right">
+  <div class="phdr">UNIT CONTROL</div>
+  <div class="ptabs">
+    <div class="ptab on" id="rt0" onclick="rtab(0)">STATUS</div>
+    <div class="ptab"    id="rt1" onclick="rtab(1)">WEAPONS</div>
+    <div class="ptab"    id="rt2" onclick="rtab(2)">OPS</div>
+  </div>
+  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="pbody" id="rb0"></div>
+    <div class="pbody" id="rb1" style="display:none"></div>
+    <div class="pbody" id="rb2" style="display:none"></div>
+  </div>
+  <div style="display:flex;flex-direction:column;border-top:1px solid var(--b);flex-shrink:0;max-height:155px;">
+    <div style="padding:3px 7px;font-size:8px;color:var(--t2);letter-spacing:2px;border-bottom:1px solid var(--b);background:rgba(0,0,0,.3);">▶ COMBAT LOG</div>
+    <div id="log" style="background:var(--bg);height:126px;overflow-y:auto;font-size:9px;line-height:1.5;"></div>
+  </div>
+</div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="sbar">
+  <div>UNITS: <span id="totalu">0</span></div>
+  <div>ENGAGEMENTS: <span id="totale">0</span></div>
+  <div>KILLS: <span id="totalk">0</span></div>
+  <div>MISSILES: <span id="totalmis">0</span></div>
+  <div id="sbarwx" style="margin-left:auto;color:var(--ylw)">WX: ☀ CLEAR</div>
+  <div id="depstat" style="margin-left:8px"></div>
+</div>
+
+<!-- TIMELINE -->
+<div id="tl" style="height:52px;">
+  <div id="tlhdr" onclick="toggleTL()">▶ TIMELINE &nbsp;<span id="tltog" style="font-size:8px;color:var(--t2);">▼ EXPAND</span></div>
+  <div id="tltrack"><div id="tltimeline"></div></div>
+</div>
+
+<!-- LOADOUT MODAL -->
+<div class="movl" id="lomodal">
+  <div class="mbox">
+    <div class="mtitle">LOADOUT CONFIGURATION</div>
+    <div id="lounname" class="msub"></div>
+    <div class="loctr">Selected: <span id="locnt">0</span> / <span id="lomax">0</span> hardpoints</div>
+    <div id="loslots"></div>
+    <div class="mbtns">
+      <button class="btn on" onclick="confirmLO()">✓ DEPLOY</button>
+      <button class="btn" onclick="cancelLO()">✕ CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- AAR MODAL -->
+<div class="movl" id="aarmodal">
+  <div class="mbox">
+    <div class="mtitle">AFTER ACTION REPORT</div>
+    <div id="aarwin"></div>
+    <div style="margin:7px 0;font-size:8px;color:var(--t2);letter-spacing:1px">UNIT PERFORMANCE</div>
+    <table class="aartbl">
+      <thead><tr><th>CALLSIGN</th><th>TYPE</th><th>KILLS</th><th>DMG OUT</th><th>HP</th><th>STATUS</th></tr></thead>
+      <tbody id="aarbody"></tbody>
+    </table>
+    <div class="mbtns"><button class="btn" onclick="document.getElementById('aarmodal').classList.remove('on')">CLOSE</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const SPEEDS = [0.25,0.5,1,2,3,5,10];
+let speedIdx=2, units=[], bases=[], missiles=[], uidCtr=0, baseIdCtr=0, midCtr=0;
+
+// Weapon target domain restrictions
+const WPNTARGETS={
+  missile:['air'],ir_missile:['air'],sam:['air'],
+  gun:['air','surface','ground','subsurface'],ciws:['air','surface','ground'],
+  agm:['ground','surface'],bomb:['ground','surface'],rocket:['ground','surface'],
+  artillery:['ground','surface'],cruise:['ground','surface'],
+  ballistic:['ground','surface'],torpedo:['surface','subsurface'],asw:['surface','subsurface'],
+};
+// Missile travel speeds in km/h (0 = instant/visual-only)
+const MSPD={missile:4500,ir_missile:3000,sam:5000,cruise:850,agm:1400,
+            bomb:600,torpedo:80,asw:900,rocket:900,ballistic:7000,gun:0,ciws:0,artillery:0};
+let selTeamKey='blue', selCat='all', selUnitKey=null;
+let selUnit=null;
+let deployMode=false, wpMode=false, tgtMode=false, baseMode=false, balistMode=false;
+let baseModeTeam='blue', baseModeType='airfield';
+let paused=false, simTime=0, lastTick=null;
+let totalE=0, totalK=0, scores={blue:0,red:0};
+let fowOn=true;
+let loKey=null, loTeam=null, loLat=0, loLng=0, loChecked={};
+let infSizeKey='squad';
+let snapshots=[], snapTimer=0, SNAP_INT=10;
+let replayOn=false, rpPlaying=false, rpTimer=null, rpIdx=0, rpMarkers=[];
+let tlEvents=[];
+let curRTab=0;
+let tlExpanded=false;
+const uStats={}; // id->{kills,dmgOut}
+
+// ── Weather ──────────────────────────────────────
+const WEATHER_STATES=['clear','cloudy','rain','storm'];
+const WEATHER_ICONS={clear:'☀',cloudy:'☁',rain:'🌧',storm:'⛈'};
+const WEATHER_DET={clear:1.0,cloudy:0.85,rain:0.60,storm:0.35};
+const WEATHER_HIT={clear:0,cloudy:0.05,rain:0.12,storm:0.22};
+let weatherIdx=0;
+
+// ── Terrain zones (Eastern Mediterranean) ────────
+const TERRAIN_ZONES=[
+  {name:'MOUNT LEBANON', type:'mountain', n:34.2,s:33.5,e:36.6,w:35.5},
+  {name:'TAURUS MTS',    type:'mountain', n:37.5,s:36.5,e:36.5,w:30.5},
+  {name:'CYPRUS HILLS',  type:'forest',   n:35.0,s:34.7,e:33.4,w:32.9},
+  {name:'SINAI DESERT',  type:'desert',   n:31.0,s:29.5,e:34.5,w:32.5},
+  {name:'BEKAA VALLEY',  type:'urban',    n:34.2,s:33.5,e:36.6,w:35.9},
+];
+const TERRAIN_FX={
+  mountain:{speedMult:0.45,detMult:0.70},
+  forest:  {speedMult:0.65,detMult:0.80},
+  urban:   {speedMult:0.80,detMult:0.90},
+  desert:  {speedMult:0.75,detMult:1.00},
+};
+function getTerrainAt(lat,lng){
+  for(const z of TERRAIN_ZONES){if(lat>=z.s&&lat<=z.n&&lng>=z.w&&lng<=z.e)return z.type;}
+  return null;
+}
+
+// ═══════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════
+const map=L.map('map',{center:[35,33.5],zoom:7,zoomControl:true});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(map);
+map.on('mousemove',e=>{document.getElementById('coorddisp').textContent=`LAT: ${e.latlng.lat.toFixed(3)}  LON: ${e.latlng.lng.toFixed(3)}`;});
+map.on('click',e=>{
+  const {lat,lng}=e.latlng;
+  if(wpMode&&selUnit&&selUnit.alive){addWP(selUnit,lat,lng);return;}
+  if(balistMode&&selUnit&&selUnit.alive){
+    selUnit.btLat=lat;selUnit.btLng=lng;balistMode=false;setHint(false);
+    updBalisticMarker(selUnit);renderRight();
+    addLog(`${selUnit.cs} target set`,'wp');return;
+  }
+  if(tgtMode)return;
+  if(baseMode){placeBase(baseModeTeam,baseModeType,lat,lng);baseMode=false;setHint(false);document.getElementById('basebtn').classList.remove('on');return;}
+  if(deployMode&&selUnitKey){
+    const d=UNIT_DB[selUnitKey];
+    if(d.hardpoints&&d.weaponPool&&d.weaponPool.length>0){openLO(selUnitKey,selTeamKey,lat,lng);}
+    else{deployUnit(selUnitKey,selTeamKey,lat,lng,null,infSizeKey);}
+  }
+});
+
+// ═══════════════════════════════════════════════
+// CALLSIGNS
+// ═══════════════════════════════════════════════
+const csCounters={};
+function genCS(key,team){
+  const P={
+    f15c:['EAGLE','HAWK','TALON'],f16c:['VIPER','FALCON','SWORD'],fa18e:['HORNET','STINGER','COBRA'],
+    f22a:['RAPTOR','GHOST','SPECTER'],f35a:['WOLF','BLADE','ARROW'],
+    b2a:['SPIRIT','WRAITH','SHADE'],b52h:['BUFF','TITAN','GOLEM'],b1b:['LANCER','JAVELIN','SPEAR'],
+    ddg51:['BURKE','COLE','ROSS'],cg47:['TICO','LAKE','ANTIE'],cvn68:['FORD','LINCOLN','REAGAN'],
+    e3sentry:['SENTRY','ORACLE','WATCH'],e2d:['HAWKEYE','TRACKER','ROVER'],
+    la_class:['SHARK','WOLF','PIKE'],virginia_class:['SILENT','HUNTER','GHOST'],
+    mq9_reaper:['REAPER','PREDATOR','SCYTHE'],rq4_hawk:['GLOBAL','HAWK','VIGIL'],
+    ah64d:['APACHE','COBRA','VIPER'],sh60b:['SEAHAWK','OSPREY','FALCON'],
+    m1a2:['IRON','STEEL','THUNDER'],m109a7:['PALADIN','CANNON','SALVO'],
+    us_rifle:['BRAVO','CHARLIE','DELTA'],us_at:['JAVELIN','STRYKE','HUNT'],
+    us_aa:['SHIELD','ARROW','GUARD'],us_airborne:['EAGLE','JUMP','STORM'],
+    us_marines:['MARINE','RECON','FORCE'],us_rangers:['RANGER','BOLD','STRIKE'],
+    patriot_pac3:['PATRIOT','SHIELD','AEGIS'],avenger_sam:['AVENGER','STING','DART'],
+    himars:['ROCKET','STRIKE','FURY'],
+    su35s:['FLANKER','BERKUT','STRIZH'],su27:['KOBRA','BARS','VOLK'],
+    mig29:['FULCRUM','STREL','GRAD'],su57:['FELON','GEPARD','LYNX'],mig31:['FOXHOUND','PIKA','BURAN'],
+    tu95:['BEAR','TOPOR','MOLOT'],tu160:['SWAN','VEPR','GROM'],tu22m:['BACKFIRE','OGON','STREL'],
+    su34:['FULLBACK','PTITSA','ORLAN'],
+    sovremenny:['SOVREM','BURU','GROZNY'],udaloy:['UDALOY','MARSHAL','ADMIRAL'],
+    kuznetsov:['KUZNETS','FLOT','ATLANT'],
+    a50:['MAINSTAY','DOZOR','STRAZH'],yasen_class:['YASEN','WOLF','SILENT'],kilo_class:['KILO','QUIET','DARK'],
+    orion_uav:['ORION','KRONSH','WATCH'],shahed136:['SHAHED','KAMIKZ','LANCE'],
+    mi28n:['HUNTER','NIGHT','STORM'],ka27:['HELIX','ASW','DIVER'],
+    t90m:['PRORYV','ARMOR','STEEL'],s400_battery:['S400','TRIUMF','AEGIS'],
+    pantsir_s1:['PANTSIR','SHELL','POINT'],iskander_m:['ISKANDER','THUNDER','STRIKE'],
+    ru_rifle:['ALFA','BRAVO','DELTA'],ru_at:['KORNET','HUNT','AT'],
+    ru_aa:['IGLA','SHIELD','AA'],ru_vdv:['VDV','STORM','JUMP'],
+    ru_naval:['NAVAL','MARINE','FORCE'],ru_spetsnaz:['SPETZ','SHADOW','GHOST'],
+    // NATO
+    typhoon:['TYPHOON','EURO','TRANCHE'],rafale_c:['RAFALE','CIGOGNE','ALIZE'],
+    gripen_e:['GRIPEN','SAAB','SWORD'],f15k:['SLAM','GOLDEN','EAGLE'],
+    kf21:['BORAMAE','TALON','SWIFT'],f16i:['SUFA','BARAK','VIPER'],
+    type45:['DARING','DRAGON','DERBY'],astute:['ASTUTE','AMBUSH','ARTFUL'],
+    nasams:['NASAMS','SHIELD','ARROW'],iron_dome:['IRON','DOME','TAMIR'],
+    // PLA
+    j20:['WEILONG','DRAGON','GHOST'],j16:['JIAN16','BATTLE','FLANKER'],
+    j10c:['VIPER','CHENGDU','SWIFT'],type055:['RENHAI','NANCHANG','CRUISER'],
+    type052d:['LUYANG','KUNMING','FRIGATE'],type093:['SHANG','HUNTER','SILENT'],
+    hq9b:['HQ9','SHIELD','BATTERY'],df26:['GUAM','CARRIER','STRIKE'],
+    ch4:['RAINBOW','WING','UAV'],z10:['ZHISHENG','ATTACK','RAPTOR'],su33:['FLANKER','OCEAN','KUZNETS'],
+  };
+  const pool=P[key]||['UNIT'];
+  if(!csCounters[key])csCounters[key]=0;
+  const n=csCounters[key]++;
+  return `${pool[n%pool.length]}-${n+1}`;
+}
+
+// ═══════════════════════════════════════════════
+// UNIT CLASS
+// ═══════════════════════════════════════════════
+class Unit{
+  constructor(key,team,lat,lng,cWpns,sizeKey){
+    const d=UNIT_DB[key];
+    this.id=++uidCtr; this.key=key; this.team=team;
+    this.cat=d.category; this.domain=d.domain;
+    this.name=d.displayName; this.icon=d.icon;
+    this.hp=d.hp; this.maxHp=d.hp;
+    this.fuel=d.fuel; this.maxFuel=d.fuel;
+    // Cruise speed: realistic operating speed, not max
+    let cruise;
+    if(d.category==='helicopter') cruise=Math.round(d.speed*0.75);
+    else if(d.domain==='air') cruise=Math.min(900,Math.round(d.speed*0.38));
+    else if(d.isInfantry||d.domain==='subsurface') cruise=d.speed;
+    else cruise=Math.round(d.speed*0.55);
+    this.speed=cruise; this.maxSpeed=d.speed;
+    this.alt=d.altitude||0;
+    this.detR=d.detectionRange;
+    this.isAir=d.isAircraft;
+    this.fDrain=d.fuelDrain;
+    this.sf=d.stealthFactor||1.0;
+    this.asw=d.asw||false;
+    this.isInf=d.isInfantry||false;
+    this.isStatic=d.isStatic||false;
+    this.isBal=d.isBallistic||false;
+    this.isSuicide=d.isSuicide||false;
+    this.lat=lat; this.lng=lng;
+    this.heading=team==='blue'?90:270;
+    this.alive=true;
+    this.cs=genCS(key,team);
+    if(this.isInf&&sizeKey&&INFANTRY_SIZES[sizeKey]){
+      const sz=INFANTRY_SIZES[sizeKey];
+      this.szLabel=sz.label;
+      const m=sz.mult;
+      this.hp=Math.round(d.hp*m); this.maxHp=this.hp;
+      const ws=JSON.parse(JSON.stringify(cWpns||d.weapons));
+      this.weapons=ws.map(w=>({...w,count:w.count===Infinity?Infinity:Math.round(w.count*m)}));
+    } else {
+      this.szLabel=null;
+      this.weapons=JSON.parse(JSON.stringify(cWpns||d.weapons));
+    }
+    this.initWC=this.weapons.map(w=>w.count===Infinity?Infinity:w.count);
+    this.cd=0; this.target=null; this.aTarget=null;
+    this.btLat=null; this.btLng=null;
+    this.fDepleted=false; this.rtb=false; this.rtbBase=null;
+    this.landed=false; this.landTime=0; this.repairDuration=0; this.cruiseSpeed=cruise;
+    this.isCarrierAircraft=d.isCarrierAircraft||false;
+    this.homeCarrier=null; // set when launched from carrier
+    this.depth=(d.domain==='subsurface')?'periscope':null;
+    this.roe='weapons_free'; // 'weapons_free' | 'tight' | 'hold'
+    this.patrol={active:false,cLat:lat,cLng:lng,radius:(d.domain==='air'||d.category==='helicopter')?20:5,dir:1,circle:null};
+    this.emcon=false;
+    this.flares=3; this.flaresMax=3; this.flaresActive=false; this.flareTimer=0;
+    this.ds='green';
+    this.fowVis=true; this.lkLat=lat; this.lkLng=lng;
+    this.marker=null; this.ghost=null; this.detCircle=null;
+    this.wps=[]; this.wpM=[]; this.wpLine=null; this.btM=null;
+    uStats[this.id]={kills:0,dmgOut:0};
+  }
+}
+
+// ═══════════════════════════════════════════════
+// DEPLOY
+// ═══════════════════════════════════════════════
+function deployUnit(key,team,lat,lng,cWpns,sizeKey){
+  const u=new Unit(key,team,lat,lng,cWpns,sizeKey);
+  mkMarker(u); units.push(u);
+  renderLists();
+  addTL('info',`${u.cs} deployed`);
+  addLog(`${u.cs} [${team.toUpperCase()}] deployed`,'info');
+}
+
+// ═══════════════════════════════════════════════
+// BASES
+// ═══════════════════════════════════════════════
+function placeBase(team,type,lat,lng){
+  const b={id:++baseIdCtr,team,type,lat,lng,marker:null};
+  const ico=type==='airfield'?'✈':'⚓';
+  const lbl=type==='airfield'?'AIRFIELD':'NAVAL BASE';
+  const icon=L.divIcon({html:`<div class="baseico"><div class="basesq ${team}">${ico}</div><div class="baselbl ${team}">${lbl}</div></div>`,className:'',iconSize:[50,36],iconAnchor:[25,14]});
+  b.marker=L.marker([lat,lng],{icon,interactive:true}).addTo(map).on('click',()=>{
+    addLog(`${team.toUpperCase()} ${lbl} — repair range 8km`,'info');
+  });
+  bases.push(b);
+  addLog(`${team.toUpperCase()} ${lbl} established`,'info');
+}
+
+function closestBase(u){
+  let best=null,bd=Infinity;
+  // Carrier aircraft can RTB to their home carrier
+  if(u.isCarrierAircraft&&u.homeCarrier&&u.homeCarrier.alive){
+    const d=distKm(u,u.homeCarrier);
+    if(d<bd){best={id:'carrier_'+u.homeCarrier.id,team:u.homeCarrier.team,type:'airfield',lat:u.homeCarrier.lat,lng:u.homeCarrier.lng,isCarrier:true,carrier:u.homeCarrier};bd=d;}
+  }
+  for(const b of bases){
+    if(b.team!==u.team)continue;
+    if((u.domain==='air'||u.isAir)&&b.type!=='airfield')continue;
+    if(u.domain==='surface'&&b.type!=='naval')continue;
+    const d=distKm(u,b);
+    if(d<bd){best=b;bd=d;}
+  }
+  return best;
+}
+
+// ═══════════════════════════════════════════════
+// MARKERS
+// ═══════════════════════════════════════════════
+function mkMarkerHTML(u,ghost){
+  if(ghost){
+    return `<div class="um umghost"><div class="umico ${u.team}">${u.icon}</div><div class="umlbl">?${u.cs}</div></div>`;
+  }
+  const hpPct=(u.hp/u.maxHp)*100, lowHp=hpPct<30, lowFuel=(u.fuel/u.maxFuel)<0.20;
+  const isSel=selUnit&&selUnit.id===u.id;
+  const dmgCls=u.ds==='yellow'?' dmgy':u.ds==='red'?' dmgr':'';
+  let wpnBadge='';
+  if(u.target&&u.target.alive){
+    const dist=distKm(u,u.target);
+    const sw=[...u.weapons].sort((a,b)=>b.range-a.range);
+    let f=null;
+    for(const w of sw){const c=w.count===Infinity?1:w.count;if(c>0&&dist<=w.range){f=w;break;}}
+    wpnBadge=f?`<div class="umwpn ${u.team}">${f.name.split(' ')[0]}</div>`:`<div class="umwpn trk">LOCK</div>`;
+  }
+  const depthBadge=u.depth?`<div class="umdepth">${u.depth.toUpperCase()}</div>`:'';
+  const szBadge=u.szLabel?` (${u.szLabel.slice(0,3)})`:''
+  const threatened=missiles.some(m=>m.tgtUnit===u&&!m.intercepted);
+  const roeBadge=u.roe==='hold'?`<div class="umroe" style="color:#888">HOLD</div>`:u.roe==='tight'?`<div class="umroe" style="color:var(--ylw)">TIGHT</div>`:'';
+  return `<div class="um">
+    <div class="umico ${u.team}${isSel?' pulse':''}${dmgCls}">${u.icon}</div>
+    <div class="umlbl">${u.cs}${szBadge}</div>
+    ${u.hp<u.maxHp?`<div class="umhp"><div class="umhpf${lowHp?' lo':''}" style="width:${hpPct}%"></div></div>`:''}
+    ${wpnBadge}${depthBadge}${roeBadge}
+    ${threatened?`<div class="umthreat">⚠ INBOUND</div>`:''}
+    ${u.flaresActive?`<div class="umflare">✦ FLARES</div>`:''}
+    ${u.patrol.active?`<div class="umpatrol">⟳ PATROL</div>`:''}
+    ${u.emcon?`<div class="umemcon">◎ EMCON</div>`:''}
+    ${lowFuel&&!u.rtb&&!u.landed?`<div class="umfuel">⚠FUEL</div>`:''}
+    ${u.rtb?`<div class="umfuel">RTB</div>`:''}
+    ${u.landed?`<div class="umfuel" style="color:#88ddff;border-color:#88ddff">LANDED</div>`:''}
+  </div>`;
+}
+
+function mkMarker(u){
+  const icon=L.divIcon({html:mkMarkerHTML(u),className:'',iconSize:[56,70],iconAnchor:[28,22]});
+  u.marker=L.marker([u.lat,u.lng],{icon,interactive:true}).addTo(map).on('click',()=>{
+    if(tgtMode&&selUnit&&u.team!==selUnit.team&&u.alive){
+      selUnit.aTarget=u; tgtMode=false; setHint(false);
+      addLog(`${selUnit.cs} → target locked: ${u.cs}`,'wp');
+      renderRight(); return;
+    }
+    selectUnit(u.id);
+  });
+}
+
+function updMarker(u){
+  if(!u.marker)return;
+  const vis=!fowOn||u.fowVis;
+  if(!vis){
+    u.marker.setOpacity(0);
+    if(!u.ghost){
+      const gi=L.divIcon({html:mkMarkerHTML(u,true),className:'',iconSize:[40,48],iconAnchor:[20,16]});
+      u.ghost=L.marker([u.lkLat,u.lkLng],{icon:gi,interactive:false,zIndexOffset:-100}).addTo(map);
+    }
+  } else {
+    u.marker.setOpacity(u.landed?0.35:1);
+    if(u.ghost){map.removeLayer(u.ghost);u.ghost=null;}
+    u.marker.setLatLng([u.lat,u.lng]);
+    u.marker.setIcon(L.divIcon({html:mkMarkerHTML(u),className:'',iconSize:[56,70],iconAnchor:[28,22]}));
+    u.lkLat=u.lat; u.lkLng=u.lng;
+  }
+  if(u.detCircle)u.detCircle.setLatLng([u.lat,u.lng]);
+}
+
+function rmMarker(u){
+  if(u.marker){map.removeLayer(u.marker);u.marker=null;}
+  if(u.ghost){map.removeLayer(u.ghost);u.ghost=null;}
+  if(u.detCircle){map.removeLayer(u.detCircle);u.detCircle=null;}
+  if(u.btM){map.removeLayer(u.btM);u.btM=null;}
+  if(u.patrol&&u.patrol.circle){map.removeLayer(u.patrol.circle);u.patrol.circle=null;}
+  clearWPVis(u);
+}
+
+function showDetCircle(u){
+  if(u.detCircle)map.removeLayer(u.detCircle);
+  u.detCircle=L.circle([u.lat,u.lng],{radius:u.detR*1000,color:u.team==='blue'?'#00aaff':'#ff3333',fillColor:u.team==='blue'?'#00aaff':'#ff3333',fillOpacity:.03,weight:1,dashArray:'4 6',opacity:.4}).addTo(map);
+}
+function hideDetCircle(u){if(u.detCircle){map.removeLayer(u.detCircle);u.detCircle=null;}}
+
+// ═══════════════════════════════════════════════
+// GEO
+// ═══════════════════════════════════════════════
+function distKm(a,b){
+  const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;
+  const s1=Math.sin(dLat/2),s2=Math.sin(dLng/2);
+  const x=s1*s1+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*s2*s2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function bearing(a,b){
+  const la=a.lat*Math.PI/180,lb=b.lat*Math.PI/180,dl=(b.lng-a.lng)*Math.PI/180;
+  return((Math.atan2(Math.sin(dl)*Math.cos(lb),Math.cos(la)*Math.sin(lb)-Math.sin(la)*Math.cos(lb)*Math.cos(dl))*180/Math.PI)+360)%360;
+}
+function steer(u,br,dt){
+  let d=br-u.heading;
+  if(d>180)d-=360;if(d<-180)d+=360;
+  const mt=(u.isAir?4:1.5)*dt;
+  if(Math.abs(d)<=mt)u.heading=br;
+  else u.heading=((u.heading+mt*Math.sign(d))%360+360)%360;
+}
+
+// ═══════════════════════════════════════════════
+// FOG OF WAR
+// ═══════════════════════════════════════════════
+function updateFOW(){
+  if(!fowOn){units.forEach(u=>u.fowVis=true);return;}
+  const wxMult=WEATHER_DET[WEATHER_STATES[weatherIdx]];
+  const blu=units.filter(u=>u.alive&&u.team==='blue');
+  const red=units.filter(u=>u.alive&&u.team==='red');
+  for(const en of red){
+    let det=false;
+    for(const fr of blu){
+      if(en.depth==='submerged'&&!fr.asw)continue;
+      const terrType=getTerrainAt(fr.lat,fr.lng);
+      const terrMult=(terrType&&TERRAIN_FX[terrType])?TERRAIN_FX[terrType].detMult:1.0;
+      const effR=effectiveDetR(fr,en);
+      if(distKm(fr,en)<=effR*en.sf*wxMult*terrMult){det=true;break;}
+    }
+    en.fowVis=det;
+  }
+  for(const u of blu)u.fowVis=true;
+}
+
+// ═══════════════════════════════════════════════
+// DAMAGE STATES
+// ═══════════════════════════════════════════════
+function updDS(u){
+  const p=u.hp/u.maxHp;
+  u.ds=p>0.75?'green':p>0.25?'yellow':'red';
+}
+function effSpd(u){
+  let spd=u.ds==='red'?u.speed*.5:u.ds==='yellow'?u.speed*.75:u.speed;
+  if(u.domain==='ground'){
+    const t=getTerrainAt(u.lat,u.lng);
+    if(t&&TERRAIN_FX[t])spd*=TERRAIN_FX[t].speedMult;
+  }
+  return spd;
+}
+function hitMod(u){return u.ds==='red'?.25:u.ds==='yellow'?.10:0;}
+
+// Altitude-based radar line-of-sight
+// Radar horizon ≈ 4.12 * sqrt(alt_m) km; scaled for game balance
+function effectiveDetR(det,tgt){
+  if(det.emcon)return 0; // EMCON: no active radar emissions
+  let r=det.detR;
+  // Altitude extends radar horizon
+  const dAlt=det.alt||0;
+  const tAlt=tgt.alt||0;
+  const dHoriz=4.12*Math.sqrt(dAlt)*0.12; // detector altitude bonus
+  const tHoriz=4.12*Math.sqrt(tAlt)*0.06; // high-flying target easier to see
+  r=Math.min(r+dHoriz+tHoriz, r*2.2);
+  // EMCON target: harder to detect (no radar return to home in on)
+  const sfMod=tgt.emcon?2.0:1.0;
+  return r/sfMod;
+}
+
+// ═══════════════════════════════════════════════
+// WAYPOINTS
+// ═══════════════════════════════════════════════
+function addWP(u,lat,lng){
+  u.wps.push({lat,lng});updWPVis(u);
+  addLog(`${u.cs} WP${u.wps.length} set`,'wp');
+  if(selUnit&&selUnit.id===u.id)renderRight();
+}
+function clrWPs(u){u.wps=[];clearWPVis(u);if(selUnit&&selUnit.id===u.id)renderRight();}
+function clearWPVis(u){
+  if(u.wpLine){map.removeLayer(u.wpLine);u.wpLine=null;}
+  for(const m of u.wpM)map.removeLayer(m);u.wpM=[];
+}
+function updWPVis(u){
+  clearWPVis(u);
+  if(!u.wps.length)return;
+  const pts=[[u.lat,u.lng],...u.wps.map(w=>[w.lat,w.lng])];
+  u.wpLine=L.polyline(pts,{color:u.team==='blue'?'#00aaff':'#ff3333',weight:1,opacity:.55,dashArray:'5 7'}).addTo(map);
+  u.wps.forEach((wp,i)=>{
+    const ico=L.divIcon({html:`<div style="width:13px;height:13px;border-radius:50%;border:1.5px solid ${u.team==='blue'?'#00aaff':'#ff3333'};background:rgba(8,11,15,.85);display:flex;align-items:center;justify-content:center;font-size:7px;font-family:'Courier New',monospace;color:${u.team==='blue'?'#00aaff':'#ff3333'};font-weight:bold">${i+1}</div>`,className:'',iconSize:[13,13],iconAnchor:[6,6]});
+    u.wpM.push(L.marker([wp.lat,wp.lng],{icon:ico,interactive:false}).addTo(map));
+  });
+}
+function navWPs(u,dt){
+  if(!u.wps.length||u.landed)return;
+  const wp=u.wps[0];
+  if(distKm(u,wp)<3){
+    u.wps.shift();updWPVis(u);
+    addLog(`${u.cs} WP reached`,'wp');
+    if(selUnit&&selUnit.id===u.id)renderRight();return;
+  }
+  if(!u.target||!u.target.alive)steer(u,bearing(u,wp),dt);
+}
+function updBalisticMarker(u){
+  if(u.btM){map.removeLayer(u.btM);u.btM=null;}
+  if(u.btLat==null)return;
+  const ico=L.divIcon({html:`<div style="width:14px;height:14px;border:2px solid #ff00ff;border-radius:50%;background:rgba(255,0,255,.2);"></div>`,className:'',iconSize:[14,14],iconAnchor:[7,7]});
+  u.btM=L.marker([u.btLat,u.btLng],{icon:ico,interactive:false}).addTo(map);
+}
+function rmWP(uid,idx){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.wps.splice(idx,1);updWPVis(u);
+  if(selUnit&&selUnit.id===u.id)renderRight();
+}
+
+// ═══════════════════════════════════════════════
+// MOVEMENT & FUEL
+// ═══════════════════════════════════════════════
+function moveUnit(u,dt){
+  if(u.isStatic||u.landed)return;
+  // Flare timer
+  if(u.flaresActive){u.flareTimer-=dt;if(u.flareTimer<=0){u.flaresActive=false;addLog(`${u.cs} flares expired`,'info');}}
+  const spd=effSpd(u);
+  const dKm=(spd/3600)*dt;
+  const hr=u.heading*Math.PI/180;
+  u.lat+=(dKm/111)*Math.cos(hr);
+  u.lng+=(dKm/(111*Math.cos(u.lat*Math.PI/180)))*Math.sin(hr);
+  u.fuel=Math.max(0,u.fuel-u.fDrain*dt);
+  if(u.fuel<=0&&!u.fDepleted){
+    u.fDepleted=true;
+    if(u.isAir){addLog(`${u.cs} FUEL EXHAUSTED`,'fuel');killUnit(u,'fuel',null);}
+    else{addLog(`${u.cs} FUEL DEPLETED`,'fuel');u.speed=0;}
+  }
+  if(!u.rtb&&u.isAir&&!u.fDepleted&&(u.fuel/u.maxFuel)<0.18){
+    const base=closestBase(u);
+    if(base){u.rtb=true;u.rtbBase=base;addLog(`${u.cs} RTB — LOW FUEL`,'fuel');}
+  }
+  // Auto RTB: critical damage (<25% HP) or all finite ammo depleted
+  if(!u.rtb&&u.alive&&!u.landed){
+    const critHP=(u.hp/u.maxHp)<0.25;
+    const allAmmoGone=u.weapons.length>0&&u.weapons.every(w=>w.count===Infinity||w.count<=0)&&u.weapons.some(w=>w.count!==Infinity);
+    if((critHP||allAmmoGone)&&(u.isAir||u.domain==='air')){
+      const base=closestBase(u);
+      if(base){u.rtb=true;u.rtbBase=base;addLog(`${u.cs} AUTO RTB — ${critHP?'CRITICAL DAMAGE':'AMMO DEPLETED'}`,'fuel');}
+    }
+  }
+  // Patrol: circle around center point when no target and not RTB
+  if(u.patrol.active&&!u.rtb&&!(u.target&&u.target.alive)){
+    const cBear=bearing(u,{lat:u.patrol.cLat,lng:u.patrol.cLng});
+    const dist=distKm(u,{lat:u.patrol.cLat,lng:u.patrol.cLng});
+    // Tangent direction: 90° from bearing-to-center (perpendicular to radius)
+    const tangent=(cBear+u.patrol.dir*90+360)%360;
+    // Proportional radius correction: pull in or push out
+    const err=dist-u.patrol.radius;
+    const corr=Math.max(-35,Math.min(35,err*4));
+    steer(u,(tangent+corr+360)%360,dt);
+    // Update patrol circle position periodically (it stays fixed)
+  }
+
+  if(u.rtb&&u.rtbBase){
+    // If RTB target is a carrier, update its position dynamically
+    if(u.rtbBase.isCarrier&&u.rtbBase.carrier){
+      u.rtbBase.lat=u.rtbBase.carrier.lat;
+      u.rtbBase.lng=u.rtbBase.carrier.lng;
+    }
+    steer(u,bearing(u,u.rtbBase),dt);
+    if(distKm(u,u.rtbBase)<2){
+      u.lat=u.rtbBase.lat; u.lng=u.rtbBase.lng;
+      u.rtb=false; u.landed=true; u.landTime=simTime; u.speed=0;
+      const dmgPct=1-(u.hp/u.maxHp);
+      // Carriers: shorter turnaround; land base: normal repair
+      const baseTime=u.rtbBase.isCarrier?180:240;
+      u.repairDuration=Math.round(baseTime+dmgPct*360);
+      const loc=u.rtbBase.isCarrier?`carrier ${u.homeCarrier?u.homeCarrier.cs:'CVN'}`:'base';
+      addLog(`${u.cs} RECOVERED on ${loc} — turnaround ${Math.round(u.repairDuration/60)} min`,'fuel');
+      updMarker(u);
+    }
+  }
+}
+
+function baseRepair(dt){
+  for(const u of units){
+    if(!u.alive)continue;
+    if(u.landed){
+      // Timed full repair for landed aircraft
+      if(simTime-u.landTime>=u.repairDuration){
+        u.hp=u.maxHp; u.fuel=u.maxFuel;
+        u.weapons.forEach((w,i)=>{if(w.count!==Infinity)w.count=u.initWC[i];});
+        updDS(u); u.landed=false; u.speed=u.cruiseSpeed; u.rtbBase=null;
+        u.fDepleted=false; u.flares=u.flaresMax; u.flaresActive=false;
+        addLog(`${u.cs} RELAUNCHED — fully armed, combat ready`,'info');
+        addTL('info',`${u.cs} relaunched`);
+        updMarker(u);
+      }
+      continue;
+    }
+    // Gradual repair for ships/ground units near a base
+    const base=closestBase(u);
+    if(!base||distKm(u,base)>8)continue;
+    if(u.hp<u.maxHp)u.hp=Math.min(u.maxHp,u.hp+3*dt);
+    if(u.fuel<u.maxFuel)u.fuel=Math.min(u.maxFuel,u.fuel+8*dt);
+    u.weapons.forEach((w,i)=>{if(w.count!==Infinity&&w.count<u.initWC[i])w.count=Math.min(u.initWC[i],w.count+0.05*dt);});
+    updDS(u);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// WEAPON FIRE VISUALIZATION
+// ═══════════════════════════════════════════════
+let activeTrails=0;
+const MAX_TRAILS=25;
+
+// Launch flash at shooter position
+function launchFlash(lat,lng,col){
+  const f=L.circleMarker([lat,lng],{radius:6,color:col,fillColor:col,fillOpacity:.9,weight:1}).addTo(map);
+  let op=.9;const fi=setInterval(()=>{op-=.18;if(op<=0){map.removeLayer(f);clearInterval(fi);}else f.setStyle({fillOpacity:op,opacity:op});},35);
+}
+
+// Instant-effect weapons (guns, CIWS, artillery visual)
+function fireInstant(att,tgt,wpn,hit){
+  if(activeTrails>=MAX_TRAILS)return;
+  activeTrails++;
+  const col=WEAPON_TRAIL_COLORS[wpn.type]||'#fff';
+  const trail=L.polyline([[att.lat,att.lng],[tgt.lat,tgt.lng]],{color:col,weight:1,opacity:.7,dashArray:'2 3'}).addTo(map);
+  if(hit)impact(tgt.lat,tgt.lng,wpn);
+  setTimeout(()=>{map.removeLayer(trail);activeTrails--;},200);
+}
+
+// Create in-flight missile object
+function fireMissile(att,tgt,wpn,hit){
+  launchFlash(att.lat,att.lng,WEAPON_TRAIL_COLORS[wpn.type]||'#fff');
+  const dist=distKm(att,tgt);
+  const spd=MSPD[wpn.type]||2000;
+  const travelTime=(dist/spd)*3600; // seconds of sim time
+  const col=WEAPON_TRAIL_COLORS[wpn.type]||'#fff';
+  const m={
+    id:++midCtr, att, tgtUnit:tgt, wpn, hit,
+    sLat:att.lat, sLng:att.lng,
+    eLat:tgt.lat, eLng:tgt.lng,
+    elapsed:0, travelTime: Math.max(0.5,travelTime),
+    intercepted:false,
+    trail:L.polyline([[att.lat,att.lng],[att.lat,att.lng]],{color:col,weight:2,opacity:.85,dashArray:'5 3'}).addTo(map),
+    head:null
+  };
+  // Moving missile head dot
+  const hico=L.divIcon({html:`<div style="width:7px;height:7px;border-radius:50%;background:${col};box-shadow:0 0 5px ${col},0 0 10px ${col}"></div>`,className:'',iconSize:[7,7],iconAnchor:[3,3]});
+  m.head=L.marker([att.lat,att.lng],{icon:hico,interactive:false,zIndexOffset:700}).addTo(map);
+  missiles.push(m);
+}
+
+function fireViz(att,tgt,wpn,hit){
+  const spd=MSPD[wpn.type];
+  if(spd===0||spd===undefined){fireInstant(att,tgt,wpn,hit);}
+  else{fireMissile(att,tgt,wpn,hit);}
+}
+
+// Advance all in-flight missiles each sim tick
+function updateMissiles(sDt){
+  for(let i=missiles.length-1;i>=0;i--){
+    const m=missiles[i];
+    if(m.intercepted)continue;
+    m.elapsed+=sDt;
+    if(!m.isBallistic&&m.tgtUnit&&m.tgtUnit.alive){m.eLat=m.tgtUnit.lat;m.eLng=m.tgtUnit.lng;}
+    const t=Math.min(1,m.elapsed/m.travelTime);
+
+    if(m.isBallistic){
+      // Parabolic arc position
+      const cLat=m.sLat+(m.eLat-m.sLat)*t+Math.sin(t*Math.PI)*m.arcH;
+      const cLng=m.sLng+(m.eLng-m.sLng)*t;
+      // Progressive partial-arc trail
+      const N=24, nPts=Math.max(2,Math.round(t*N)+1);
+      const arcPts=[];
+      for(let j=0;j<nPts;j++){
+        const at=j/(N);
+        arcPts.push([m.sLat+(m.eLat-m.sLat)*at+Math.sin(at*Math.PI)*m.arcH, m.sLng+(m.eLng-m.sLng)*at]);
+      }
+      if(m.trail&&arcPts.length>=2)m.trail.setLatLngs(arcPts);
+      if(m.head)m.head.setLatLng([cLat,cLng]);
+    } else {
+      const cLat=m.sLat+(m.eLat-m.sLat)*t;
+      const cLng=m.sLng+(m.eLng-m.sLng)*t;
+      if(m.trail)m.trail.setLatLngs([[m.sLat,m.sLng],[cLat,cLng]]);
+      if(m.head)m.head.setLatLng([cLat,cLng]);
+    }
+
+    if(t>=1){
+      if(m.trail){map.removeLayer(m.trail);m.trail=null;}
+      if(m.head){map.removeLayer(m.head);m.head=null;}
+      if(!m.intercepted){
+        if(m.isBallistic){
+          // AOE blast ring
+          const aoe=L.circle([m.eLat,m.eLng],{radius:m.wpn.damage*60,color:'#ff00ff',fillColor:'#ff00ff',fillOpacity:.35,weight:2}).addTo(map);
+          let op=.35;const fi=setInterval(()=>{op-=.03;if(op<=0){map.removeLayer(aoe);clearInterval(fi);}else aoe.setStyle({fillOpacity:op,opacity:op});},80);
+          impact(m.eLat,m.eLng,m.wpn);
+          if(m.hit){
+            const enemies=units.filter(e=>e.alive&&e.team!==m.att.team);
+            for(const en of enemies){
+              if(distKm(en,{lat:m.eLat,lng:m.eLng})<=3){
+                en.hp-=m.wpn.damage; uStats[m.att.id].dmgOut+=m.wpn.damage;
+                addLog(`BALLISTIC HIT — ${en.cs} -${m.wpn.damage}HP`,'hit');
+                updDS(en); if(en.hp<=0)killUnit(en,m.att.cs,m.att.id);
+              }
+            }
+          } else { addLog(`BALLISTIC MISS`,'miss'); }
+        } else {
+          // Flares: IR missiles can be decoyed
+          const flaresDeflect=m.tgtUnit&&m.tgtUnit.flaresActive&&
+            (m.wpn.type==='ir_missile'||m.wpn.type==='missile')&&Math.random()<0.50;
+          if(flaresDeflect){
+            addLog(`✦ ${m.tgtUnit.cs} FLARES — ${m.wpn.name.split(' ')[0]} decoyed!`,'info');
+            impact(m.eLat,m.eLng,m.wpn);
+          } else if(m.hit&&m.tgtUnit&&m.tgtUnit.alive){
+            m.tgtUnit.hp-=m.wpn.damage; uStats[m.att.id].dmgOut+=m.wpn.damage;
+            updDS(m.tgtUnit);
+            addLog(`HIT! ${m.tgtUnit.cs} -${m.wpn.damage}HP (${Math.max(0,Math.round(m.tgtUnit.hp))} left)`,'hit');
+            if(m.tgtUnit.hp<=0)killUnit(m.tgtUnit,m.att.cs,m.att.id);
+          } else if(!m.hit){
+            addLog(`MISS — ${m.tgtUnit?m.tgtUnit.cs:'target'} evades`,'miss');
+          }
+          if(!flaresDeflect)impact(m.eLat,m.eLng,m.wpn);
+        }
+      }
+      missiles.splice(i,1);
+    }
+  }
+}
+
+function fireBallistic(att,tLat,tLng,wpn,hit){
+  launchFlash(att.lat,att.lng,WEAPON_TRAIL_COLORS.ballistic);
+  const dist=distKm(att,{lat:tLat,lng:tLng});
+  const travelTime=Math.max(4,dist/MSPD.ballistic*3600);
+  const arcH=Math.max(1.5,dist*0.012);
+  const col=WEAPON_TRAIL_COLORS.ballistic;
+  const m={
+    id:++midCtr, att, tgtUnit:null, wpn, hit,
+    sLat:att.lat, sLng:att.lng, eLat:tLat, eLng:tLng,
+    elapsed:0, travelTime,
+    intercepted:false, isBallistic:true, arcH,
+    trail:L.polyline([[att.lat,att.lng]],{color:col,weight:2,opacity:.9,dashArray:'4 3'}).addTo(map),
+    head:null
+  };
+  const hico=L.divIcon({html:`<div style="width:9px;height:9px;border-radius:50%;background:${col};box-shadow:0 0 8px ${col},0 0 16px ${col}"></div>`,className:'',iconSize:[9,9],iconAnchor:[4,4]});
+  m.head=L.marker([att.lat,att.lng],{icon:hico,interactive:false,zIndexOffset:700}).addTo(map);
+  missiles.push(m);
+}
+
+function bigInterceptFlash(lat,lng,isBal){
+  // Big white burst + expanding ring
+  const burst=L.circleMarker([lat,lng],{radius:5,color:'#fff',fillColor:'#fff',fillOpacity:1,weight:3}).addTo(map);
+  const ring=L.circle([lat,lng],{radius:isBal?1500:600,color:isBal?'#00ffcc':'#00ffaa',fillColor:isBal?'#00ffcc':'#00ffaa',fillOpacity:.4,weight:2}).addTo(map);
+  const ring2=L.circle([lat,lng],{radius:isBal?3000:1200,color:'#fff',fillColor:'transparent',fillOpacity:0,weight:1.5,opacity:.7}).addTo(map);
+  let r=5,op=1; const fi=setInterval(()=>{r+=10;op-=.10;if(op<=0){map.removeLayer(burst);clearInterval(fi);}else{burst.setRadius(r);burst.setStyle({fillOpacity:op,opacity:op});}},35);
+  let op2=.4; const fi2=setInterval(()=>{op2-=.035;if(op2<=0){map.removeLayer(ring);clearInterval(fi2);}else ring.setStyle({fillOpacity:op2,opacity:op2});},60);
+  let op3=.7; const fi3=setInterval(()=>{op3-=.05;if(op3<=0){map.removeLayer(ring2);clearInterval(fi3);}else ring2.setStyle({opacity:op3});},55);
+}
+
+function impact(lat,lng,wpn){
+  const C={missile:'#ff7700',ir_missile:'#ffaa00',cruise:'#ff3300',bomb:'#cc8800',agm:'#ff8844',sam:'#00ffaa',ciws:'#ffee55',gun:'#ffff88',torpedo:'#00ddff',ballistic:'#ff00ff',artillery:'#ff9900',rocket:'#ff6600'};
+  const c=C[wpn.type]||'#ff6600';
+  const imp=L.circleMarker([lat,lng],{radius:9,color:c,fillColor:c,fillOpacity:.85,weight:2}).addTo(map);
+  let r=9,op=.85;
+  const fi=setInterval(()=>{r+=4;op-=.1;if(op<=0){map.removeLayer(imp);clearInterval(fi);}else{imp.setRadius(r);imp.setStyle({fillOpacity:op,opacity:op});}},55);
+}
+
+// ═══════════════════════════════════════════════
+// COMBAT
+// ═══════════════════════════════════════════════
+function calcHit(att,dist,wpn){
+  const base=Math.max(0.06,1-(dist/wpn.range)*0.78);
+  const wxPenalty=WEATHER_HIT[WEATHER_STATES[weatherIdx]];
+  const penalty=hitMod(att)+0.08+wxPenalty;
+  return Math.random()<Math.max(0.03,base-penalty);
+}
+
+function combatTick(dt){
+  for(const att of units){
+    if(!att.alive||att.landed)continue;
+    if(att.cd>0)att.cd-=dt;
+
+    const enemies=units.filter(e=>e.alive&&e.team!==att.team);
+
+    // ── SAM/CIWS intercept incoming missiles first ──────────
+    if((att.cat==='sam_battery'||att.cat==='destroyer'||att.cat==='carrier')&&att.cd<=0){
+      for(let mi=missiles.length-1;mi>=0;mi--){
+        const m=missiles[mi];
+        if(m.intercepted||m.att.team===att.team)continue;
+        // Current missile position
+        const t=Math.min(1,m.elapsed/m.travelTime);
+        const mLat=m.sLat+(m.eLat-m.sLat)*t;
+        const mLng=m.sLng+(m.eLng-m.sLng)*t;
+        const effInterceptR=effectiveDetR(att,{lat:mLat,lng:mLng,alt:m.isBallistic?20000:1000,emcon:false,sf:1,domain:'air'});
+        if(distKm(att,{lat:mLat,lng:mLng})>effInterceptR)continue;
+        const intWpn=att.weapons.find(w=>(w.type==='sam'||w.type==='ciws')&&(w.count===Infinity||w.count>0));
+        if(!intWpn)continue;
+        if(intWpn.count!==Infinity)intWpn.count--;
+        const ballFactor=m.isBallistic?0.35:1.0;
+        const intercepted=Math.random()<(intWpn.type==='ciws'?0.82:0.68)*ballFactor;
+        const mType=m.isBallistic?'BALLISTIC':m.wpn.name.split(' ')[0];
+        addLog(`${att.cs} [${intWpn.name.split(' ')[0]}] → ${mType}: ${intercepted?'✓ DESTROYED':'✗ MISSED'}`,'info');
+        // Visualize counter-missile going from SAM to intercept point
+        const cMissCol=WEAPON_TRAIL_COLORS[intWpn.type]||'#00ff88';
+        const cTrail=L.polyline([[att.lat,att.lng],[mLat,mLng]],{color:cMissCol,weight:2,opacity:.9,dashArray:'3 2'}).addTo(map);
+        setTimeout(()=>{if(cTrail)map.removeLayer(cTrail);},intercepted?400:600);
+        launchFlash(att.lat,att.lng,cMissCol);
+        if(intercepted){
+          m.intercepted=true;
+          if(m.trail){map.removeLayer(m.trail);m.trail=null;}
+          if(m.head){map.removeLayer(m.head);m.head=null;}
+          bigInterceptFlash(mLat,mLng,m.isBallistic);
+          addTL('info',`${att.cs} intercepts ${mType}`);
+          missiles.splice(mi,1);
+        }
+        att.cd=intWpn.type==='ciws'?1.5:4+Math.random()*2;
+        break;
+      }
+    }
+
+    // ── Find target ──────────────────────────────────────────
+    let closest=null,cd=Infinity;
+
+    // Assigned target first
+    if(att.aTarget&&att.aTarget.alive){
+      const d=distKm(att,att.aTarget);
+      const effR=effectiveDetR(att,att.aTarget);
+      if(att.aTarget.fowVis||d<=effR*att.aTarget.sf){closest=att.aTarget;cd=d;}
+    }
+
+    if(!closest){
+      const airFirst=att.cat==='sam_battery';
+      for(const en of enemies){
+        if(en.depth==='submerged'&&!att.asw)continue;
+        if(airFirst&&en.domain!=='air')continue;
+        const d=distKm(att,en);
+        // Own detection (altitude-adjusted) OR network data link
+        const effR=effectiveDetR(att,en);
+        const canSee=(d<=effR*en.sf)||(en.fowVis&&d<=effR*2.5);
+        if(canSee&&d<cd){closest=en;cd=d;}
+      }
+      if(!closest&&airFirst){
+        for(const en of enemies){
+          if(en.depth==='submerged'&&!att.asw)continue;
+          const d=distKm(att,en);
+          const effR=effectiveDetR(att,en);
+          const canSee=(d<=effR*en.sf)||(en.fowVis&&d<=effR*2.5);
+          if(canSee&&d<cd){closest=en;cd=d;}
+        }
+      }
+    }
+
+    att.target=closest||null;
+    // ROE: weapons_free = auto engage; tight = only if enemy is actively targeting a friendly; hold = never auto
+    if(att.roe==='hold'){ att.target=null; closest=null; }
+    else if(att.roe==='tight'&&closest){
+      const activelyThreatening=missiles.some(m=>m.att===closest&&!m.intercepted)||
+        (closest.target&&closest.target.team===att.team);
+      if(!activelyThreatening){att.target=null;closest=null;}
+    }
+    if(att.target&&att.target.alive&&!att.isStatic&&!att.isBal)
+      steer(att,bearing(att,att.target),dt);
+
+    // ── Ballistic: fire at map location ──────────────────────
+    if(att.isBal&&att.btLat!=null&&att.cd<=0){
+      const tDist=distKm(att,{lat:att.btLat,lng:att.btLng});
+      const sw=[...att.weapons].sort((a,b)=>b.range-a.range);
+      let wpn=null;
+      for(const w of sw){const c=w.count===Infinity?1:w.count;if(c>0&&tDist<=w.range){wpn=w;break;}}
+      if(wpn){
+        totalE++;document.getElementById('totale').textContent=totalE;
+        if(wpn.count!==Infinity)wpn.count--;
+        const hit=calcHit(att,tDist,wpn);
+        fireBallistic(att,att.btLat,att.btLng,wpn,hit);
+        addLog(`${att.cs} LAUNCHES ${wpn.name} — intercept window open`,'eng');
+        addTL('eng',`${att.cs} fires ${wpn.name}`);
+        att.cd=30+Math.random()*20;
+        att.btLat=null;att.btLng=null;updBalisticMarker(att);
+        if(selUnit&&selUnit.id===att.id)renderRight();
+      }
+      continue;
+    }
+
+    if(!closest||att.cd>0)continue;
+
+    // ── Select best compatible weapon ────────────────────────
+    const sw=[...att.weapons].sort((a,b)=>b.range-a.range);
+    let wpn=null;
+    for(const w of sw){
+      const cnt=w.count===Infinity?1:w.count;
+      if(cnt<=0||cd>w.range)continue;
+      // Target domain restriction
+      const allowed=WPNTARGETS[w.type];
+      if(allowed&&!allowed.includes(closest.domain))continue;
+      wpn=w;break;
+    }
+    if(!wpn)continue;
+
+    // Don't double-launch a guided missile at same target from same attacker
+    const isGuidedMissile=(MSPD[wpn.type]&&MSPD[wpn.type]>0);
+    if(isGuidedMissile&&missiles.some(m=>m.tgtUnit===closest&&m.att.id===att.id&&!m.intercepted))continue;
+
+    totalE++;document.getElementById('totale').textContent=totalE;
+    if(wpn.count!==Infinity)wpn.count--;
+
+    const hit=calcHit(att,cd,wpn);
+
+    // Engagement visual + in-flight missile
+    fireViz(att,closest,wpn,hit);
+    addLog(`${att.cs} → ${closest.cs} [${wpn.name.split(' ')[0]}] ${cd.toFixed(0)}km`,'eng');
+    addTL('eng',`${att.cs} fires at ${closest.cs}`);
+
+    // Instant weapons resolve immediately; missiles resolve in updateMissiles()
+    if(MSPD[wpn.type]===0){
+      if(hit){
+        closest.hp-=wpn.damage;
+        uStats[att.id].dmgOut+=wpn.damage;
+        updDS(closest);
+        addLog(`HIT! ${closest.cs} -${wpn.damage}HP (${Math.max(0,Math.round(closest.hp))} left)`,'hit');
+        if(closest.hp<=0)killUnit(closest,att.cs,att.id);
+      }else{
+        addLog(`MISS — ${closest.cs} evades`,'miss');
+      }
+      if(selUnit&&(selUnit.id===att.id||selUnit.id===closest.id))liveUpdBars();
+    }
+
+    if(att.isSuicide)killUnit(att,'suicide',null);
+    att.cd=5+Math.random()*3;
+  }
+}
+
+function killUnit(u,cause,killerId){
+  u.alive=false;u.hp=0;
+  rmMarker(u);
+  if(cause!=='fuel'&&cause!=='suicide')addLog(`✕ ${u.cs} DESTROYED by ${cause}`,'kill');
+  if(killerId){
+    uStats[killerId].kills++;
+    const killer=units.find(x=>x.id===killerId);
+    if(killer){scores[killer.team]++;document.getElementById(`sc${killer.team[0]}`).textContent=scores[killer.team];}
+    totalK++;document.getElementById('totalk').textContent=totalK;
+  }
+  addTL('kill',`${u.cs} destroyed`);
+  if(selUnit&&selUnit.id===u.id)renderRight();
+  renderLists();
+  checkVictory();
+}
+
+function checkVictory(){
+  const ba=units.filter(u=>u.alive&&u.team==='blue').length;
+  const ra=units.filter(u=>u.alive&&u.team==='red').length;
+  if(units.length>4&&(ba===0||ra===0)){
+    paused=true;
+    document.getElementById('pausedmsg').classList.add('on');
+    setTimeout(()=>showAAR(),1200);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════
+function gameTick(ts){
+  if(!lastTick)lastTick=ts;
+  const rDt=(ts-lastTick)/1000;lastTick=ts;
+  if(!paused&&!replayOn){
+    const sDt=rDt*SPEEDS[speedIdx];
+    simTime+=sDt;
+    updClock();
+    for(const u of units){
+      if(!u.alive)continue;
+      navWPs(u,sDt);
+      moveUnit(u,sDt);
+      if(u.wpLine&&u.wps.length){
+        const pts=[[u.lat,u.lng],...u.wps.map(w=>[w.lat,w.lng])];
+        u.wpLine.setLatLngs(pts);
+      }
+    }
+    baseRepair(sDt);
+    combatTick(sDt);
+    updateMissiles(sDt);
+    updateFOW();
+    for(const u of units)if(u.alive)updMarker(u);
+    if(selUnit&&selUnit.alive)liveUpdBars();
+    // Update missile counter in status bar
+    document.getElementById('totalmis').textContent=missiles.length;
+    // Snapshot
+    snapTimer+=sDt;
+    if(snapTimer>=SNAP_INT){
+      snapTimer=0;
+      snapshots.push({t:simTime,state:units.map(u=>({id:u.id,lat:u.lat,lng:u.lng,hp:u.hp,fuel:u.fuel,alive:u.alive,heading:u.heading,icon:u.icon,team:u.team,cs:u.cs}))});
+      const sc=document.getElementById('rpscrub');
+      sc.max=snapshots.length-1;
+    }
+  }
+  requestAnimationFrame(gameTick);
+}
+
+function updClock(){
+  const h=Math.floor(simTime/3600),m=Math.floor((simTime%3600)/60),s=Math.floor(simTime%60);
+  document.getElementById('simtime').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════
+// UNIT SELECTION
+// ═══════════════════════════════════════════════
+function selectUnit(id){
+  if(selUnit)hideDetCircle(selUnit);
+  selUnit=units.find(u=>u.id===id)||null;
+  if(selUnit&&selUnit.alive)showDetCircle(selUnit);
+  renderRight();
+  renderLists();
+  for(const u of units)if(u.alive)updMarker(u);
+}
+
+// ═══════════════════════════════════════════════
+// RIGHT PANEL
+// ═══════════════════════════════════════════════
+function rtab(i){
+  curRTab=i;
+  [0,1,2].forEach(j=>{
+    document.getElementById(`rt${j}`).classList.toggle('on',j===i);
+    document.getElementById(`rb${j}`).style.display=j===i?'':'none';
+  });
+  renderRight();
+}
+function renderRight(){
+  if(!selUnit){
+    document.getElementById('rb0').innerHTML=`<div class="nosel"><div class="noselico">◎</div>NO UNIT SELECTED<br>CLICK A UNIT ON MAP<br>OR IN FORCES LIST</div>`;
+    document.getElementById('rb1').innerHTML='';
+    document.getElementById('rb2').innerHTML='';
+    return;
+  }
+  const u=selUnit;
+  if(!u.alive){
+    document.getElementById('rb0').innerHTML=`<div class="nosel"><div class="noselico" style="color:var(--red)">✕</div>${u.cs}<br>UNIT DESTROYED</div>`;
+    document.getElementById('rb1').innerHTML='';document.getElementById('rb2').innerHTML='';
+    return;
+  }
+  renderStatus(u);
+  renderWeapons(u);
+  renderOps(u);
+}
+
+function renderStatus(u){
+  const hp=(u.hp/u.maxHp)*100,fp=(u.fuel/u.maxFuel)*100;
+  const dsBadge=u.ds==='green'?`<span class="dbadge" style="border-color:var(--grn);color:var(--grn);background:rgba(0,255,136,.06)">● COMBAT READY</span>`:
+    u.ds==='yellow'?`<span class="dbadge ylw">● DEGRADED</span>`:`<span class="dbadge org">● CRITICAL</span>`;
+  document.getElementById('rb0').innerHTML=`
+    <div class="dhdr">
+      <div class="dcs">${u.cs}</div>
+      <div class="dtp">${u.name} · ${u.domain.toUpperCase()}</div>
+      <span class="dbadge ${u.team}">${u.team.toUpperCase()}</span> ${dsBadge}
+    </div>
+    <div class="bgrp">
+      <div class="blbl"><span>HP</span><span id="hpv">${Math.round(u.hp)} / ${u.maxHp}</span></div>
+      <div class="btrack"><div class="bfill bhp" id="hpb" style="width:${hp}%"></div></div>
+    </div>
+    <div class="bgrp">
+      <div class="blbl"><span>FUEL</span><span id="fuv">${u.fuel.toFixed(1)} / ${u.maxFuel}</span></div>
+      <div class="btrack"><div class="bfill bfuel" id="fub" style="width:${fp}%"></div></div>
+    </div>
+    <div class="div"></div>
+    <div class="crow">
+      <span class="clbl">HEADING</span>
+      <input type="range" min="0" max="359" value="${u.heading}" id="rhdg"
+        oninput="document.getElementById('vhdg').textContent=this.value+'°';units.find(x=>x.id===${u.id}).heading=+this.value">
+      <span class="cval" id="vhdg">${u.heading}°</span>
+    </div>
+    <div class="crow">
+      <span class="clbl">SPEED</span>
+      <input type="range" min="0" max="${u.maxSpeed}" value="${u.speed}" id="rspd"
+        oninput="document.getElementById('vspd').textContent=this.value;units.find(x=>x.id===${u.id}).speed=+this.value">
+      <span class="cval" id="vspd">${u.speed}</span>
+    </div>
+    <div style="display:flex;gap:2px;margin-bottom:4px">
+      <button class="spdbtn" onclick="setSpeedPreset(${u.id},'stop')">STOP</button>
+      <button class="spdbtn" onclick="setSpeedPreset(${u.id},'cruise')">CRUISE</button>
+      <button class="spdbtn" onclick="setSpeedPreset(${u.id},'max')">MAX</button>
+    </div>
+    ${u.isAir?`<div class="crow">
+      <span class="clbl">ALT</span>
+      <input type="range" min="0" max="20000" step="500" value="${u.alt}" id="ralt"
+        oninput="document.getElementById('valt').textContent=this.value+'m';units.find(x=>x.id===${u.id}).alt=+this.value">
+      <span class="cval" id="valt">${u.alt}m</span>
+    </div>`:''}
+    <div class="div"></div>
+    <div style="font-size:9px;color:var(--t2);line-height:1.9;padding:2px 0">
+      <div>LAT <span style="color:var(--blue)" id="plat">${u.lat.toFixed(4)}</span> &nbsp; LON <span style="color:var(--blue)" id="plng">${u.lng.toFixed(4)}</span></div>
+      <div>HDG <span style="color:var(--ylw)" id="phdg">${u.heading}°</span> &nbsp; DET <span style="color:var(--t1)">${u.detR}km</span> &nbsp; STEALTH <span style="color:var(--t1)">${u.sf<0.5?'LOW':u.sf<0.9?'MED':'NORM'}</span></div>
+    </div>`;
+}
+
+function renderWeapons(u){
+  if(!u.alive){document.getElementById('rb1').innerHTML='';return;}
+  const rows=u.weapons.map((w,i)=>{
+    const cnt=w.count===Infinity?'∞':Math.floor(w.count);
+    const init=u.initWC[i];
+    const pct=init===Infinity?100:Math.max(0,(w.count/init)*100);
+    const dep=w.count!==Infinity&&w.count<=0;
+    return `<div class="wrow${dep?' dep':''}">
+      <div class="wtop"><span class="wname">${w.name}</span><div class="wstats"><span class="wr">${w.range}km</span><span class="wd">${w.damage}dmg</span></div></div>
+      <div class="wbar"><div class="wbarfill" id="wf${u.id}${i}" style="width:${pct}%"></div></div>
+      <div class="wcnt" id="wc${u.id}${i}">${dep?'DEPLETED':cnt+' rds'}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('rb1').innerHTML=rows||`<div class="nosel"><div class="noselico">⊘</div>NO WEAPONS</div>`;
+}
+
+function renderOps(u){
+  if(!u.alive){document.getElementById('rb2').innerHTML='';return;}
+  const wpItems=u.wps.map((wp,i)=>`
+    <div class="wpitem">
+      <span><span class="wpnum">WP${i+1}</span><span class="wpcoord">${wp.lat.toFixed(3)}, ${wp.lng.toFixed(3)}</span></span>
+      <span class="wpdel" onclick="rmWP(${u.id},${i})">✕</span>
+    </div>`).join('')||`<div style="color:var(--t2);font-size:8px;padding:3px">No waypoints set</div>`;
+
+  const depthBtn=u.depth?`
+    <div class="sec" style="margin-top:6px">DEPTH</div>
+    <div style="display:flex;gap:3px;margin-bottom:5px">
+      ${['surfaced','periscope','submerged'].map(d=>`<button class="btn sm${u.depth===d?' on':''}" onclick="setDepth(${u.id},'${d}')">${d.toUpperCase().slice(0,4)}</button>`).join('')}
+    </div>`:'';
+
+  const tgtBtn=`<button class="abtn${tgtMode&&selUnit&&selUnit.id===u.id?' on':''}" onclick="toggleTgtMode(${u.id})">⊕ ${tgtMode&&selUnit&&selUnit.id===u.id?'CANCEL TARGET':'ASSIGN TARGET'}</button>`;
+  const curTgt=u.aTarget?`<div style="font-size:9px;color:var(--ylw);margin-bottom:4px">TARGET: ${u.aTarget.cs} ${u.aTarget.alive?'':'[KIA]'}</div>`:'';
+  const balistBtn=u.isBal?`<button class="abtn${balistMode&&selUnit&&selUnit.id===u.id?' on':''}" onclick="toggleBalistMode(${u.id})">🎯 ${u.btLat!=null?'TARGET SET — CHANGE':'SET STRIKE TARGET'}</button>`:'' ;
+  const rtbBtn=(u.isAir||u.domain==='air'||u.category==='helicopter')?`<button class="abtn${u.rtb?' on':''}" onclick="toggleRTB(${u.id})">${u.rtb?'◉ RTB ACTIVE — CANCEL':'↩ RTB TO BASE'}</button>`:'';
+  const isPatrollable=(u.domain==='air'||u.domain==='surface'||u.category==='helicopter');
+  const patrolBtn=isPatrollable?`
+    <button class="abtn${u.patrol.active?' on':''}" onclick="togglePatrol(${u.id})">⟳ ${u.patrol.active?'PATROL ACTIVE — CANCEL':'START PATROL'}</button>
+    ${u.patrol.active?`<div style="display:flex;gap:2px;align-items:center;margin-bottom:3px">
+      <span style="font-size:8px;color:var(--t2);width:42px">RADIUS</span>
+      <input type="range" min="5" max="50" step="5" value="${u.patrol.radius}" style="flex:1" oninput="setPatrolRadius(${u.id},+this.value)">
+      <span id="pradiusval" style="color:var(--ylw);font-size:9px;min-width:34px;text-align:right">${u.patrol.radius}km</span>
+    </div>
+    <button class="abtn" onclick="flipPatrolDir(${u.id})" style="font-size:8px">${u.patrol.dir>0?'↻ CW → FLIP CCW':'↺ CCW → FLIP CW'}</button>`:''}
+  `:'';
+  const emconBtn=`<button class="abtn${u.emcon?' on':''}" onclick="toggleEMCON(${u.id})" style="${u.emcon?'border-color:#888;color:#888':''}">◎ EMCON: ${u.emcon?'ON — RADAR SILENT':'OFF'}</button>`;
+  const flaresBtn=(u.isAir||u.domain==='air'||u.category==='helicopter')?`<button class="abtn${u.flaresActive?' on':''}" onclick="useFlares(${u.id})"${u.flares<=0?' disabled':''} style="${u.flaresActive?'border-color:var(--ylw);color:var(--ylw)':''}">✦ FLARES ${u.flaresActive?'ACTIVE':'DEPLOY'} (${u.flares}/${u.flaresMax})</button>`:'';
+
+  // Carrier air wing launch panel
+  const d=UNIT_DB[u.key];
+  const carrierBtn=d&&d.isCarrier?buildCarrierPanel(u):'';
+  const carrierHomeBtn=u.isCarrierAircraft&&u.homeCarrier?`<div style="font-size:9px;color:var(--t2);padding:2px 0">HOME CVN: <span style="color:var(--blue)">${u.homeCarrier.cs}</span></div>`:'';
+
+  document.getElementById('rb2').innerHTML=`
+    ${carrierHomeBtn}
+    ${carrierBtn}
+    ${depthBtn}
+    <div class="sec">ENGAGEMENT RULES</div>
+    <div class="roerow">
+      <button class="roebtn${u.roe==='weapons_free'?' on free':''}" onclick="setROE(${u.id},'weapons_free')">FREE</button>
+      <button class="roebtn${u.roe==='tight'?' on tight':''}" onclick="setROE(${u.id},'tight')">TIGHT</button>
+      <button class="roebtn${u.roe==='hold'?' on hold':''}" onclick="setROE(${u.id},'hold')">HOLD</button>
+    </div>
+    <div class="sec">TARGETING</div>
+    ${curTgt}${tgtBtn}${balistBtn}
+    <div class="div"></div>
+    <div class="sec">PATROL</div>
+    ${patrolBtn||'<div style="color:var(--t2);font-size:8px;padding:2px">Ground units cannot patrol</div>'}
+    <div class="div"></div>
+    <div class="sec">COUNTERMEASURES</div>
+    ${emconBtn}${flaresBtn}
+    <div class="div"></div>
+    <div class="sec">WAYPOINTS (${u.wps.length})</div>
+    ${wpItems}
+    <div style="display:flex;gap:3px;margin-top:4px">
+      <button class="abtn${wpMode&&selUnit&&selUnit.id===u.id?' on':''}" onclick="toggleWPMode(${u.id})" style="flex:1">${wpMode&&selUnit&&selUnit.id===u.id?'◉ WP MODE — CLICK MAP':'+ ADD WAYPOINT'}</button>
+      <button class="abtn" onclick="clrWPs(units.find(x=>x.id===${u.id}))" style="width:54px">CLR</button>
+    </div>
+    <div class="div"></div>
+    ${rtbBtn}
+    <button class="abtn grn" onclick="map.panTo([${u.lat},${u.lng}])">⊕ CENTER MAP</button>`;
+}
+
+function liveUpdBars(){
+  const u=selUnit;if(!u||!u.alive)return;
+  const hp=(u.hp/u.maxHp)*100,fp=(u.fuel/u.maxFuel)*100;
+  const hb=document.getElementById('hpb'),hv=document.getElementById('hpv');
+  const fb=document.getElementById('fub'),fv=document.getElementById('fuv');
+  const pl=document.getElementById('plat'),pn=document.getElementById('plng'),ph=document.getElementById('phdg');
+  if(hb)hb.style.width=hp+'%';if(hv)hv.textContent=`${Math.round(u.hp)} / ${u.maxHp}`;
+  if(fb)fb.style.width=fp+'%';if(fv)fv.textContent=`${u.fuel.toFixed(1)} / ${u.maxFuel}`;
+  if(pl)pl.textContent=u.lat.toFixed(4);if(pn)pn.textContent=u.lng.toFixed(4);if(ph)ph.textContent=u.heading.toFixed(0)+'°';
+  // Update weapon bars
+  if(curRTab===1&&u.weapons){
+    u.weapons.forEach((w,i)=>{
+      const init=u.initWC[i];
+      const pct=init===Infinity?100:Math.max(0,(w.count/init)*100);
+      const bar=document.getElementById(`wf${u.id}${i}`);
+      const cnt=document.getElementById(`wc${u.id}${i}`);
+      if(bar)bar.style.width=pct+'%';
+      if(cnt)cnt.textContent=w.count===Infinity?'∞ rds':w.count<=0?'DEPLETED':Math.floor(w.count)+' rds';
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════
+// LEFT PANEL
+// ═══════════════════════════════════════════════
+function ltab(i){
+  [0,1].forEach(j=>{
+    document.getElementById(`lt${j}`).classList.toggle('on',j===i);
+    document.getElementById(`lb${j}`).style.display=j===i?'':'none';
+  });
+}
+
+function renderCatFilter(){
+  const c=document.getElementById('catrow');c.innerHTML='';
+  [['all','ALL'],...Object.entries(CATEGORIES).map(([k,v])=>[k,v.abbr])].forEach(([key,lbl])=>{
+    const b=document.createElement('div');
+    b.className='cfbtn'+(selCat===key?' on':'');
+    b.textContent=lbl;
+    b.onclick=()=>{selCat=key;renderCatFilter();renderUCards();};
+    c.appendChild(b);
+  });
+}
+
+function renderUCards(){
+  const c=document.getElementById('ucards');c.innerHTML='';
+  const entries=Object.entries(UNIT_DB).filter(([,d])=>{
+    if(d.team!==selTeamKey)return false;
+    if(selCat!=='all'&&d.category!==selCat)return false;
+    return true;
+  });
+  if(!entries.length){c.innerHTML=`<div style="color:var(--t2);font-size:8px;padding:4px">NO UNITS</div>`;}
+  entries.forEach(([key,d])=>{
+    const card=document.createElement('div');
+    const isSel=selUnitKey===key;
+    card.className=`ucard${isSel?' sel'+(selTeamKey==='red'?' red':''):''}`;
+    const wpnRows=d.weapons.slice(0,3).map(w=>`
+      <div class="ucwpn">
+        <span class="ucwpnn">${w.name}</span>
+        <span class="ucwpnr">${w.range}km</span>
+        <span class="ucwpnd">${w.damage}d</span>
+      </div>`).join('');
+    const szSel=d.isInfantry?`<div class="infsize">${Object.entries(INFANTRY_SIZES).map(([k,v])=>`<div class="szbtn${infSizeKey===k?' on':''}" onclick="event.stopPropagation();setInfSize('${k}',event)">${v.label.slice(0,3).toUpperCase()}</div>`).join('')}</div>`:'';
+    card.innerHTML=`
+      <div class="uctop"><span class="ucname">${d.displayName}</span><span class="ucicon">${d.icon}</span></div>
+      <div class="ucstats">HP<span>${d.hp}</span> SPD<span>${d.speed}</span> DET<span>${d.detectionRange}km</span>${d.stealthFactor<0.5?' <span style="color:var(--grn)">STEALTH</span>':''}</div>
+      ${wpnRows}${szSel}`;
+    card.onclick=()=>{
+      selUnitKey=key;deployMode=true;wpMode=false;tgtMode=false;
+      document.getElementById('depstat').textContent=`DEPLOY: ${d.displayName}`;
+      document.getElementById('dephint').style.display='';
+      renderUCards();
+    };
+    c.appendChild(card);
+  });
+}
+
+function setInfSize(k,evt){
+  infSizeKey=k;renderUCards();
+}
+
+function selTeam(t){
+  selTeamKey=t;
+  document.getElementById('tbblu').className='tbtn blue'+(t==='blue'?' on':'');
+  document.getElementById('tbred').className='tbtn red'+(t==='red'?' on':'');
+  selUnitKey=null;deployMode=false;
+  document.getElementById('depstat').textContent='';
+  document.getElementById('dephint').style.display='none';
+  renderCatFilter();renderUCards();
+}
+
+function renderLists(){
+  ['blue','red'].forEach(team=>{
+    const el=document.getElementById(`${team}list`);el.innerHTML='';
+    const list=units.filter(u=>u.team===team);
+    if(!list.length){el.innerHTML=`<div style="color:var(--t2);font-size:8px;padding:3px;letter-spacing:1px">NO UNITS</div>`;return;}
+    list.forEach(u=>{
+      const hp=(u.hp/u.maxHp)*100,fp=(u.fuel/u.maxFuel)*100;
+      const d=document.createElement('div');
+      d.className=`uitem ${team}${!u.alive?' dead':''}${selUnit&&selUnit.id===u.id?' sel':''}`;
+      d.innerHTML=`<div class="uiico">${u.icon}</div>
+        <div class="uiinfo">
+          <div class="uics">${u.cs}${!u.alive?' [KIA]':''}</div>
+          <div class="uitp">${u.name.split(' ').slice(0,2).join(' ')}</div>
+          ${u.alive?`<div class="mbar"><div class="mfill mhp${hp<30?' lo':''}" style="width:${hp}%"></div></div>
+          <div class="mbar"><div class="mfill mfp${fp<20?' lo':''}" style="width:${fp}%"></div></div>`:''}
+        </div>`;
+      if(u.alive)d.onclick=()=>selectUnit(u.id);
+      el.appendChild(d);
+    });
+  });
+  const ba=units.filter(u=>u.team==='blue'&&u.alive).length;
+  const ra=units.filter(u=>u.team==='red'&&u.alive).length;
+  document.getElementById('bc').textContent=ba;
+  document.getElementById('rc').textContent=ra;
+  document.getElementById('ovb').textContent=ba;
+  document.getElementById('ovr').textContent=ra;
+  document.getElementById('totalu').textContent=ba+ra;
+}
+
+// ═══════════════════════════════════════════════
+// CARRIER OPS
+// ═══════════════════════════════════════════════
+function buildCarrierPanel(carrier){
+  const d=UNIT_DB[carrier.key];
+  if(!d||!d.airWing||!d.airWing.length)return'';
+  const airborne=units.filter(u=>u.homeCarrier&&u.homeCarrier.id===carrier.id&&u.alive&&!u.landed);
+  const onDeck=units.filter(u=>u.homeCarrier&&u.homeCarrier.id===carrier.id&&u.alive&&u.landed);
+  const rows=d.airWing.map(wKey=>{
+    const wd=UNIT_DB[wKey];if(!wd)return'';
+    return `<button class="abtn" onclick="carrierLaunch(${carrier.id},'${wKey}')" style="font-size:9px">
+      ▲ LAUNCH ${wd.displayName.split(' ').slice(0,2).join(' ')} ${wd.icon}
+    </button>`;
+  }).join('');
+  return `<div class="sec">CARRIER AIR WING</div>
+  <div style="font-size:8px;color:var(--t2);margin-bottom:4px">
+    AIRBORNE: <span style="color:var(--grn)">${airborne.length}</span> &nbsp; ON DECK: <span style="color:var(--ylw)">${onDeck.length}</span>
+  </div>
+  ${rows}
+  <div class="div"></div>`;
+}
+
+function carrierLaunch(carrierId, unitKey){
+  const carrier=units.find(u=>u.id===carrierId);
+  if(!carrier||!carrier.alive){addLog('Carrier unavailable','info');return;}
+  if(!UNIT_DB[unitKey]){return;}
+  // Spawn slightly offset from carrier
+  const latOff=(Math.random()-0.5)*0.04;
+  const lngOff=(Math.random()-0.5)*0.04;
+  const u=new Unit(unitKey,carrier.team,carrier.lat+latOff,carrier.lng+lngOff,null,null);
+  u.homeCarrier=carrier;
+  u.heading=carrier.heading;
+  mkMarker(u);units.push(u);
+  renderLists();
+  addLog(`${u.cs} LAUNCHED from ${carrier.cs}`,'info');
+  addTL('info',`${u.cs} launched from ${carrier.cs}`);
+  renderRight();
+}
+
+// ═══════════════════════════════════════════════
+// OPS ACTIONS
+// ═══════════════════════════════════════════════
+function toggleWPMode(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  if(wpMode&&selUnit&&selUnit.id===uid){wpMode=false;setHint(false);}
+  else{wpMode=true;tgtMode=false;balistMode=false;setHint(true,'WAYPOINT MODE — CLICK MAP TO ADD');}
+  renderRight();
+}
+function toggleTgtMode(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  if(tgtMode&&selUnit&&selUnit.id===uid){tgtMode=false;setHint(false);}
+  else{tgtMode=true;wpMode=false;balistMode=false;setHint(true,'TARGET MODE — CLICK ENEMY UNIT');}
+  renderRight();
+}
+function toggleBalistMode(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  if(balistMode&&selUnit&&selUnit.id===uid){balistMode=false;setHint(false);}
+  else{balistMode=true;wpMode=false;tgtMode=false;setHint(true,'STRIKE MODE — CLICK MAP TO SET TARGET');}
+  renderRight();
+}
+function toggleRTB(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.rtb=!u.rtb;
+  if(!u.rtb)u.rtbBase=null;
+  else{const base=closestBase(u);if(base){u.rtbBase=base;}else{u.rtb=false;addLog(`${u.cs}: no base available`,'info');}}
+  renderRight();
+}
+function setDepth(uid,d){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.depth=d;
+  addLog(`${u.cs} — depth: ${d.toUpperCase()}`,'info');
+  renderRight();updMarker(u);
+}
+function setROE(uid,roe){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.roe=roe;
+  const lbl={weapons_free:'WEAPONS FREE — auto-engage all',tight:'WEAPONS TIGHT — only if threatening',hold:'HOLD FIRE — manual only'};
+  addLog(`${u.cs} ROE: ${lbl[roe]}`,'info');
+  renderRight();updMarker(u);
+}
+function togglePatrol(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.patrol.active=!u.patrol.active;
+  if(u.patrol.active){
+    u.patrol.cLat=u.lat; u.patrol.cLng=u.lng;
+    const col=u.team==='blue'?'#00aaff':'#ff3333';
+    if(u.patrol.circle)map.removeLayer(u.patrol.circle);
+    u.patrol.circle=L.circle([u.patrol.cLat,u.patrol.cLng],{radius:u.patrol.radius*1000,color:col,fillColor:col,fillOpacity:.03,weight:1,dashArray:'6 8',opacity:.5}).addTo(map);
+    addLog(`${u.cs} PATROL ACTIVE — ${u.patrol.radius}km radius`,'info');
+  } else {
+    if(u.patrol.circle){map.removeLayer(u.patrol.circle);u.patrol.circle=null;}
+    addLog(`${u.cs} patrol cancelled`,'info');
+  }
+  renderRight();updMarker(u);
+}
+function setPatrolRadius(uid,r){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.patrol.radius=+r;
+  if(u.patrol.circle)u.patrol.circle.setRadius(u.patrol.radius*1000);
+  document.getElementById('pradiusval').textContent=r+'km';
+}
+function flipPatrolDir(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.patrol.dir*=-1;
+  addLog(`${u.cs} patrol direction: ${u.patrol.dir>0?'CW':'CCW'}`,'info');
+  renderRight();
+}
+function toggleEMCON(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  u.emcon=!u.emcon;
+  addLog(`${u.cs} EMCON: ${u.emcon?'ON — radar silent':'OFF — radar active'}`,'info');
+  renderRight();updMarker(u);
+}
+function useFlares(uid){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  if(u.flares<=0){addLog(`${u.cs} no flares remaining`,'miss');return;}
+  if(u.flaresActive){addLog(`${u.cs} flares already active`,'info');return;}
+  u.flares--; u.flaresActive=true; u.flareTimer=10;
+  addLog(`${u.cs} ✦ FLARES DEPLOYED — 10s window`,'info');
+  renderRight();updMarker(u);
+}
+function setSpeedPreset(uid,preset){
+  const u=units.find(x=>x.id===uid);if(!u)return;
+  const spd=preset==='stop'?0:preset==='max'?u.maxSpeed:u.cruiseSpeed;
+  u.speed=spd;
+  const rspd=document.getElementById('rspd');
+  if(rspd){rspd.value=spd;document.getElementById('vspd').textContent=spd;}
+  addLog(`${u.cs} speed → ${preset.toUpperCase()} (${spd} km/h)`,'info');
+}
+function setPatrolDirFlip(uid){flipPatrolDir(uid);}
+function setHint(on,txt=''){
+  const h=document.getElementById('modehint');
+  h.textContent=txt;h.classList.toggle('on',on);
+}
+
+// ═══════════════════════════════════════════════
+// HEADER CONTROLS
+// ═══════════════════════════════════════════════
+function chgSpd(dir){
+  speedIdx=Math.max(0,Math.min(SPEEDS.length-1,speedIdx+dir));
+  document.getElementById('spddisp').textContent=SPEEDS[speedIdx]+'×';
+}
+function togglePause(){
+  paused=!paused;
+  const btn=document.getElementById('pausebtn');
+  document.getElementById('pausedmsg').classList.toggle('on',paused);
+  if(paused){btn.textContent='▶ RESUME';btn.className='btn on';lastTick=null;}
+  else{btn.textContent='⏸ PAUSE';btn.className='btn warn';}
+}
+function toggleFOW(){
+  fowOn=!fowOn;
+  document.getElementById('fowbtn').textContent=`FOG: ${fowOn?'ON':'OFF'}`;
+  document.getElementById('fowbtn').classList.toggle('on',!fowOn);
+  updateFOW();for(const u of units)if(u.alive)updMarker(u);
+}
+function cycleWeather(){
+  weatherIdx=(weatherIdx+1)%WEATHER_STATES.length;
+  const w=WEATHER_STATES[weatherIdx];
+  document.getElementById('wxbtn').textContent=`WX: ${WEATHER_ICONS[w]} ${w.toUpperCase()}`;
+  document.getElementById('wxbtn').classList.toggle('danger',w==='storm');
+  document.getElementById('wxbtn').classList.toggle('warn',w==='rain');
+  document.getElementById('wxbtn').classList.toggle('on',w==='clear');
+  // Sync status bar
+  const sbarwx=document.getElementById('sbarwx');
+  if(sbarwx){
+    sbarwx.textContent=`WX: ${WEATHER_ICONS[w]} ${w.toUpperCase()}`;
+    sbarwx.style.color=w==='storm'?'var(--red)':w==='rain'?'var(--org)':w==='cloudy'?'var(--t2)':'var(--ylw)';
+  }
+  addLog(`WEATHER: ${w.toUpperCase()} — detection ${Math.round(WEATHER_DET[w]*100)}% · hit penalty +${Math.round(WEATHER_HIT[w]*100)}%`,'info');
+}
+function startBaseMode(){
+  // Toggle base type selection: airfield for blue, naval for blue
+  const base=document.getElementById('basebtn');
+  if(baseMode){baseMode=false;base.classList.remove('on');setHint(false);return;}
+  // Simple toggle between airfield/naval
+  baseModeType=baseModeType==='airfield'?'naval':'airfield';
+  baseModeTeam=selTeamKey;
+  baseMode=true;
+  base.classList.add('on');
+  base.textContent=`+ ${baseModeType==='airfield'?'AIRFIELD':'NAVAL'}`;
+  setHint(true,`PLACE ${baseModeTeam.toUpperCase()} ${baseModeType.toUpperCase()} — CLICK MAP`);
+}
+function resetGame(){
+  if(!confirm('Reset simulation? All units and bases will be removed.'))return;
+  units.forEach(u=>{if(u.patrol&&u.patrol.circle)map.removeLayer(u.patrol.circle);rmMarker(u);});
+  bases.forEach(b=>{if(b.marker)map.removeLayer(b.marker);});
+  missiles.forEach(m=>{if(m.trail)map.removeLayer(m.trail);if(m.head)map.removeLayer(m.head);});
+  missiles=[];
+  units=[];bases=[];uidCtr=0;baseIdCtr=0;selUnit=null;simTime=0;
+  totalE=0;totalK=0;scores={blue:0,red:0};
+  Object.keys(csCounters).forEach(k=>{csCounters[k]=0;});
+  snapshots=[];tlEvents=[];
+  document.getElementById('tltrack').innerHTML='<div id="tltimeline"></div>';
+  ['scb','scr','totale','totalk','totalmis'].forEach(id=>document.getElementById(id).textContent='0');
+  const sbarwx=document.getElementById('sbarwx');if(sbarwx){sbarwx.textContent='WX: ☀ CLEAR';sbarwx.style.color='var(--ylw)';}
+  document.getElementById('log').innerHTML='';
+  deployMode=false;wpMode=false;tgtMode=false;baseMode=false;balistMode=false;
+  weatherIdx=0;
+  document.getElementById('wxbtn').textContent='WX: ☀ CLEAR';
+  document.getElementById('wxbtn').classList.remove('danger','warn','on');
+  document.getElementById('basebtn').textContent='+ BASE';
+  document.getElementById('basebtn').classList.remove('on');
+  document.getElementById('depstat').textContent='';
+  document.getElementById('dephint').style.display='none';
+  setHint(false);
+  renderLists();renderRight();
+  addLog('SIMULATION RESET — SYSTEM ONLINE','info');
+}
+
+// ═══════════════════════════════════════════════
+// COMBAT LOG
+// ═══════════════════════════════════════════════
+const logColors={eng:'#ffcc00',hit:'#ff8844',miss:'#4a6a7a',kill:'#ff3333',fuel:'#ff8800',info:'#4a6a7a',wp:'#88ddff'};
+function addLog(msg,type){
+  const log=document.getElementById('log');
+  const h=Math.floor(simTime/3600),m=Math.floor((simTime%3600)/60),s=Math.floor(simTime%60);
+  const ts=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const d=document.createElement('div');
+  d.style.cssText=`padding:2px 7px;border-bottom:1px solid rgba(30,58,74,.2);color:${logColors[type]||'#4a6a7a'}`;
+  d.innerHTML=`<span style="color:#4a6a7a;margin-right:5px">[${ts}]</span>${msg}`;
+  log.appendChild(d);
+  while(log.children.length>120)log.removeChild(log.firstChild);
+  log.scrollTop=log.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════════
+const tlColors={kill:'#ff3333',eng:'#ffcc00',fuel:'#ff8800',info:'#4a6a7a',wp:'#88ddff'};
+function addTL(type,txt){
+  tlEvents.push({t:simTime,type,txt});
+  if(tlEvents.length>100)tlEvents.shift();
+  renderTL();
+}
+function renderTL(){
+  const track=document.getElementById('tltrack');
+  // Keep the timeline element
+  track.innerHTML='<div id="tltimeline"></div>';
+  if(!tlEvents.length)return;
+  const maxT=Math.max(...tlEvents.map(e=>e.t),1);
+  const W=track.offsetWidth-16;
+  tlEvents.forEach((e,i)=>{
+    const x=Math.max(0,Math.min(W,(e.t/maxT)*W));
+    const dot=document.createElement('div');
+    dot.className='tlevt';
+    dot.style.cssText=`left:${x+8}px;background:${tlColors[e.type]||'#4a6a7a'};`;
+    dot.setAttribute('data-tip',`[${fmtT(e.t)}] ${e.txt}`);
+    dot.title=`[${fmtT(e.t)}] ${e.txt}`;
+    track.appendChild(dot);
+  });
+}
+function fmtT(t){const h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=Math.floor(t%60);return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
+function toggleTL(){
+  tlExpanded=!tlExpanded;
+  document.getElementById('tl').style.height=tlExpanded?'80px':'52px';
+  document.getElementById('tltog').textContent=tlExpanded?'▲ COLLAPSE':'▼ EXPAND';
+  document.getElementById('tltrack').style.height=tlExpanded?'58px':'32px';
+}
+
+// ═══════════════════════════════════════════════
+// REPLAY
+// ═══════════════════════════════════════════════
+function toggleReplay(){
+  if(replayOn){exitReplay();return;}
+  if(!snapshots.length){addLog('No snapshots yet — let the sim run first','info');return;}
+  replayOn=true;paused=true;
+  document.getElementById('rpbar').classList.add('on');
+  document.getElementById('rpbtn').classList.add('on');
+  document.getElementById('rpscrub').max=snapshots.length-1;
+  document.getElementById('rpscrub').value=0;
+  rpIdx=0;rpShowSnapshot(0);
+}
+function exitReplay(){
+  replayOn=false;
+  if(rpPlaying){clearInterval(rpTimer);rpPlaying=false;}
+  rpMarkers.forEach(m=>map.removeLayer(m));rpMarkers=[];
+  document.getElementById('rpbar').classList.remove('on');
+  document.getElementById('rpbtn').classList.remove('on');
+  document.getElementById('rpplaybtn').textContent='▶ PLAY';
+}
+function rpScrub(idx){
+  rpIdx=+idx;rpShowSnapshot(rpIdx);
+}
+function rpShowSnapshot(idx){
+  rpMarkers.forEach(m=>map.removeLayer(m));rpMarkers=[];
+  const snap=snapshots[idx];if(!snap)return;
+  document.getElementById('rptlbl').textContent=`T+${fmtT(snap.t)}`;
+  snap.state.forEach(s=>{
+    const col=s.team==='blue'?'#00aaff':'#ff3333';
+    const bg=s.team==='blue'?'rgba(0,70,150,.7)':'rgba(120,0,0,.7)';
+    const opacity=s.alive?1:0.3;
+    const ico=L.divIcon({html:`<div style="width:22px;height:22px;border-radius:50%;border:2px solid ${col};background:${bg};display:flex;align-items:center;justify-content:center;font-size:11px;opacity:${opacity}">${s.icon}</div><div style="font-size:7px;font-family:'Courier New',monospace;color:#e8f4ff;background:rgba(8,11,15,.8);padding:1px 2px;margin-top:1px;text-align:center;white-space:nowrap;opacity:${opacity}">${s.cs}</div>`,className:'',iconSize:[44,36],iconAnchor:[22,11]});
+    const m=L.marker([s.lat,s.lng],{icon:ico,interactive:false,zIndexOffset:500}).addTo(map);
+    rpMarkers.push(m);
+  });
+}
+function rpToggle(){
+  if(rpPlaying){clearInterval(rpTimer);rpPlaying=false;document.getElementById('rpplaybtn').textContent='▶ PLAY';}
+  else{
+    rpPlaying=true;document.getElementById('rpplaybtn').textContent='⏸ PAUSE';
+    rpTimer=setInterval(()=>{
+      rpIdx=Math.min(rpIdx+1,snapshots.length-1);
+      document.getElementById('rpscrub').value=rpIdx;
+      rpShowSnapshot(rpIdx);
+      if(rpIdx>=snapshots.length-1){clearInterval(rpTimer);rpPlaying=false;document.getElementById('rpplaybtn').textContent='▶ PLAY';}
+    },400);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// AFTER ACTION REPORT
+// ═══════════════════════════════════════════════
+function showAAR(){
+  const ba=units.filter(u=>u.team==='blue'&&u.alive).length;
+  const ra=units.filter(u=>u.team==='red'&&u.alive).length;
+  const win=ba>ra?'blue':ra>ba?'red':'draw';
+  const winEl=document.getElementById('aarwin');
+  if(win==='draw'){winEl.innerHTML=`<div class="aarwin" style="color:var(--ylw);border-color:var(--ylw)">DRAW</div>`;}
+  else{winEl.innerHTML=`<div class="aarwin ${win}">${win.toUpperCase()} FORCE VICTORY</div>`;}
+
+  const tbody=document.getElementById('aarbody');tbody.innerHTML='';
+  const sorted=[...units].sort((a,b)=>a.team.localeCompare(b.team)||(uStats[b.id].kills-uStats[a.id].kills));
+  sorted.forEach(u=>{
+    const st=uStats[u.id]||{kills:0,dmgOut:0};
+    const tr=document.createElement('tr');
+    tr.className=`${u.team}${!u.alive?' dead':''}`;
+    tr.innerHTML=`<td>${u.cs}</td><td>${u.name.split(' ').slice(0,2).join(' ')}</td><td>${st.kills}</td><td>${st.dmgOut}</td><td>${Math.max(0,Math.round(u.hp))}/${u.maxHp}</td><td>${u.alive?'ALIVE':'KIA'}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('aarmodal').classList.add('on');
+}
+
+// ═══════════════════════════════════════════════
+// LOADOUT MODAL
+// ═══════════════════════════════════════════════
+const loQty={};
+function openLO(key,team,lat,lng){
+  loKey=key;loTeam=team;loLat=lat;loLng=lng;loChecked={};
+  const d=UNIT_DB[key];
+  document.getElementById('lounname').textContent=`${d.displayName} — ${d.hardpoints} hardpoints`;
+  document.getElementById('lomax').textContent=d.hardpoints;
+  document.getElementById('locnt').textContent=0;
+  const slots=document.getElementById('loslots');slots.innerHTML='';
+  // Pre-fill defaults
+  const defMap={};d.weapons.forEach(w=>{defMap[w.name]=w.count;});
+  d.weaponPool.forEach((w,i)=>{
+    loChecked[i]=w.name in defMap;
+    const defCount=defMap[w.name]||w.count;
+    loQty[i]=defCount===Infinity?0:Math.max(1,Math.min(defCount,w.count));
+    const maxQ=w.count===Infinity?0:w.count;
+    const div=document.createElement('div');
+    div.className='loslot'+(loChecked[i]?' on':'');
+    const qRow=w.count!==Infinity?`
+      <div style="display:flex;align-items:center;gap:4px;margin-top:3px;${loChecked[i]?'':'opacity:.4;pointer-events:none'}" id="loqrow${i}">
+        <span style="font-size:8px;color:var(--t2);width:14px">QTY</span>
+        <input type="range" min="1" max="${maxQ}" value="${loQty[i]}" style="flex:1;height:3px"
+          oninput="loQtyChange(${i},+this.value)">
+        <span id="loqval${i}" style="color:var(--ylw);font-size:9px;min-width:22px;text-align:right">${loQty[i]}</span>
+      </div>`:'';
+    div.innerHTML=`<div style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" id="lo${i}" ${loChecked[i]?'checked':''} onchange="loToggle(${i})">
+      <span class="loslotname">${w.name}</span>
+      <span class="loslotinfo">${w.range}km · ${w.damage}dmg · ${w.count===Infinity?'∞':w.count+'max'}</span>
+    </div>${qRow}`;
+    slots.appendChild(div);
+  });
+  loUpdCnt();
+  document.getElementById('lomodal').classList.add('on');
+}
+function loQtyChange(i,v){
+  loQty[i]=v;
+  const el=document.getElementById(`loqval${i}`);
+  if(el)el.textContent=v;
+  loUpdCnt();
+}
+function loToggle(i){
+  const d=UNIT_DB[loKey];
+  loChecked[i]=document.getElementById(`lo${i}`).checked;
+  const cnt=Object.values(loChecked).filter(Boolean).length;
+  if(cnt>d.hardpoints){loChecked[i]=false;document.getElementById(`lo${i}`).checked=false;}
+  // Update slot styles and qty row pointer-events
+  document.querySelectorAll('.loslot').forEach((el,j)=>{
+    el.classList.toggle('on',!!loChecked[j]);
+    const qrow=document.getElementById(`loqrow${j}`);
+    if(qrow)qrow.style.cssText=`display:flex;align-items:center;gap:4px;margin-top:3px;opacity:${loChecked[j]?'1':'0.4'};pointer-events:${loChecked[j]?'auto':'none'}`;
+  });
+  loUpdCnt();
+}
+function loUpdCnt(){
+  const cnt=Object.values(loChecked).filter(Boolean).length;
+  document.getElementById('locnt').textContent=cnt;
+}
+function confirmLO(){
+  const d=UNIT_DB[loKey];
+  const chosen=d.weaponPool.filter((_,i)=>loChecked[i]).map((w,_,arr)=>{
+    const origIdx=d.weaponPool.indexOf(w);
+    const qty=w.count===Infinity?Infinity:(loQty[origIdx]||w.count);
+    return {...w,count:qty};
+  });
+  if(!chosen.length){
+    // Flash warning
+    document.getElementById('locnt').style.color='var(--red)';
+    setTimeout(()=>{document.getElementById('locnt').style.color='';},800);
+    addLog('Select at least one weapon system','info');
+    return;
+  }
+  document.getElementById('lomodal').classList.remove('on');
+  deployUnit(loKey,loTeam,loLat,loLng,chosen,infSizeKey);
+}
+function cancelLO(){document.getElementById('lomodal').classList.remove('on');}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+renderCatFilter();
+renderUCards();
+renderLists();
+renderRight();
+addLog('TACTICAL COMMAND v5.0 ONLINE — GLOBAL MULTI-DOMAIN OPS','info');
+addLog('FOW · Stealth · Damage · Bases · Loadouts · Replay · Weather · Terrain','info');
+addLog('ROE · Patrol · EMCON · Flares · Altitude LoS · Carrier Ops · Auto-RTB','info');
+addLog('NEW: Carrier Air Wing · Worldwide DB (NATO/PLA) · Loadout Qty · Auto-RTB','info');
+requestAnimationFrame(gameTick);
+</script>
+</body>
+</html>
